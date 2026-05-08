@@ -2,6 +2,7 @@
 import argparse
 import json
 import math
+import os
 import resource
 import sys
 import time
@@ -20,8 +21,11 @@ sys.path.insert(0, str(MODEL_DIR))
 from embed_text_bias_hidden_npu import embed_text as embed_text_npu  # noqa: E402
 
 
-TFLITE_MODEL = "/home/radxa/embeddinggemma/embeddinggemma-300M_seq1024_mixed-precision.tflite"
-TOKENIZER = "/home/radxa/embeddinggemma/tokenizer.model"
+TFLITE_MODEL = os.environ.get(
+    "EMBEDDINGGEMMA_TFLITE",
+    str(Path.home() / "embeddinggemma/embeddinggemma-300M_seq1024_mixed-precision.tflite"),
+)
+TOKENIZER = os.environ.get("EMBEDDINGGEMMA_TOKENIZER", str(MODEL_DIR / "tokenizer.model"))
 
 DEFAULT_QUERIES = [
     "does Cubie A7S support NVMe storage?",
@@ -32,7 +36,26 @@ DEFAULT_QUERIES = [
     "can Cubie A7S encode or decode 4K video?",
     "what camera interface is available on Cubie A7S?",
     "where can I download Cubie A7S images?",
+    "what are the dimensions of the Cubie A7S board?",
+    "what memory type does Cubie A7S use?",
+    "does Cubie A7S have PCIe 3.0?",
+    "what GPU is in the Allwinner A733?",
+    "what CPU cores are in the Allwinner A733?",
+    "what USB-C display capability does Cubie A7S provide?",
+    "what operating system images are available for Cubie A7S?",
+    "how do I get started with the Cubie A7S?",
+    "what power connector does Cubie A7S use?",
+    "does the Cubie A7S support MIPI CSI cameras?",
+    "what is the RISC-V controller used for?",
+    "what is the target use case for Cubie A7S?",
 ]
+
+TARGETS = {
+    "query_cos_mean": 0.93,
+    "query_cos_min": 0.90,
+    "top_k_overlap_mean": 0.85,
+    "reference_top_mrr_in_npu": 0.70,
+}
 
 
 def cpu_seconds(kind: int) -> float:
@@ -89,11 +112,12 @@ def print_hit(chunks: list[dict], idx: int, prefix: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="A/B retrieval quality eval: official CPU TFLite vs corrected NPU EmbeddingGemma.")
-    parser.add_argument("--max-chunks", type=int, default=8)
+    parser.add_argument("--max-chunks", type=int, default=16)
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--out-dir", default="quality_eval")
     parser.add_argument("--verbose-npu", action="store_true")
+    parser.add_argument("--target-report", action="store_true", help="Print pass/fail against built-in quality targets.")
     args = parser.parse_args()
 
     here = Path(__file__).resolve().parent
@@ -203,6 +227,12 @@ def main() -> int:
         "npu_process_plus_child_cpu_s",
     ]:
         print(f"{key}={summary[key]:.4f}")
+    print()
+    print("TARGETS")
+    for key, target in TARGETS.items():
+        value = summary[key]
+        status = "PASS" if value >= target else "FAIL"
+        print(f"{key}>={target:.4f}: {value:.4f} {status}")
     print(f"summary_file={out_dir / 'summary.json'}")
 
     print()

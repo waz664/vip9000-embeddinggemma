@@ -10,20 +10,21 @@ webui/static/index.html
 On the Radxa board, the live copy is:
 
 ```text
-/home/radxa/rag_webui
+~/rag_webui
 ```
 
 It uses:
 
-- NPU EmbeddingGemma retrieval from `/home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32`
+- NPU EmbeddingGemma retrieval from `~/embeddinggemma_npu_seq128_bias_hidden_fp32`
 - the directory-backed vector index in `rag_demo/index`
 - Ollama model `qwen3:0.6b`
 - Python standard-library HTTP server, no Flask/FastAPI dependency
+- a relevance threshold, `VIP9000_RAG_MIN_COSINE`, default `0.35`
 
 Start it:
 
 ```bash
-cd /home/radxa/rag_webui
+cd ~/rag_webui
 ./app.py
 ```
 
@@ -33,7 +34,7 @@ Open:
 http://<radxa-ip>:8080
 ```
 
-The app intentionally sends only the top 2 retrieved snippets to Qwen3. Larger prompts worked mechanically but were too slow on this board through Ollama. A representative NVMe query completed in about:
+The app intentionally sends only the top 2 retrieved snippets to Qwen3, and only when the best retrieved chunk clears the relevance threshold. If no chunk looks relevant, it answers normally without KB citations. Larger prompts worked mechanically but were too slow on this board through Ollama. A representative NVMe query completed in about:
 
 ```text
 embedding_s=19.2

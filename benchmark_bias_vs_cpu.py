@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import importlib.util
+import os
 import resource
 import sys
 import time
@@ -15,9 +16,15 @@ from embed_text_bias_hidden_npu import embed_text as embed_text_bias_npu
 
 
 ROOT = Path(__file__).resolve().parent
-TFLITE_MODEL = "/home/radxa/embeddinggemma/embeddinggemma-300M_seq1024_mixed-precision.tflite"
-TOKENIZER = "/home/radxa/embeddinggemma/tokenizer.model"
-OLD_HIDDEN_RUNNER = "/home/radxa/embeddinggemma_npu_seq128_hidden_fp32/embed_text_hidden_npu.py"
+TFLITE_MODEL = os.environ.get(
+    "EMBEDDINGGEMMA_TFLITE",
+    str(Path.home() / "embeddinggemma/embeddinggemma-300M_seq1024_mixed-precision.tflite"),
+)
+TOKENIZER = os.environ.get("EMBEDDINGGEMMA_TOKENIZER", str(ROOT / "tokenizer.model"))
+OLD_HIDDEN_RUNNER = os.environ.get(
+    "OLD_HIDDEN_RUNNER",
+    str(Path.home() / "embeddinggemma_npu_seq128_hidden_fp32/embed_text_hidden_npu.py"),
+)
 
 
 def cpu_seconds(kind: int) -> float:

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import os
 import resource
 import time
 from pathlib import Path
@@ -12,8 +13,12 @@ import tensorflow as tf
 from npu_embed import embed_text
 
 
-TFLITE_MODEL = "/home/radxa/embeddinggemma/embeddinggemma-300M_seq1024_mixed-precision.tflite"
-TOKENIZER = "/home/radxa/embeddinggemma/tokenizer.model"
+MODEL_DIR = Path(__file__).resolve().parents[1]
+TFLITE_MODEL = os.environ.get(
+    "EMBEDDINGGEMMA_TFLITE",
+    str(Path.home() / "embeddinggemma/embeddinggemma-300M_seq1024_mixed-precision.tflite"),
+)
+TOKENIZER = os.environ.get("EMBEDDINGGEMMA_TOKENIZER", str(MODEL_DIR / "tokenizer.model"))
 
 
 def cpu_seconds(kind: int) -> float:

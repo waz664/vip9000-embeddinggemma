@@ -10,6 +10,14 @@ The working deployment uses:
 - CPU tokenization, embedding lookup, masked pooling, dense projection tail, and L2 normalization
 - a small directory-backed RAG demo for Radxa Cubie A7S product/docs pages
 
+## Known Working Setup
+
+- Board: Radxa Cubie A7S
+- SoC: Allwinner A733
+- NPU: Vivante VIP9000-series, `VIP9000NANODI_PLUS_PID0X1000003B`
+- VIPLite driver seen during testing: `2.0.3.2-AW-2024-08-30`
+- Runtime path expected by default: `~/ai-sdk`
+
 The important result is that adding the attention-bias input restored most of the original model quality. The previous unmasked NPU graph was only about `0.747` cosine against official CPU TFLite output for a representative query. The corrected masked/bias graph measured `0.944`.
 
 ## Current Results
@@ -23,19 +31,21 @@ Single-query benchmark on Radxa Cubie A7S:
 | old NPU, unmasked hidden FP32 seq128 | 23.665 s | 4.236 s | 0.747 |
 | corrected NPU, masked/bias hidden FP32 seq128 | 19.331 s | 3.169 s | 0.944 |
 
-Small retrieval A/B eval, official CPU TFLite reference vs corrected NPU:
+Larger retrieval A/B eval, official CPU TFLite reference vs corrected NPU:
 
 | Metric | Value |
 | --- | ---: |
-| document cosine mean | 0.9285 |
-| document cosine min | 0.9029 |
-| query cosine mean | 0.9434 |
-| query cosine min | 0.9346 |
-| top-1 match rate | 0.6250 |
-| overlap@5 mean | 0.9250 |
-| reference top-1 MRR in NPU ranking | 0.7500 |
+| chunks | 16 |
+| queries | 20 |
+| document cosine mean | 0.9364 |
+| document cosine min | 0.8869 |
+| query cosine mean | 0.9460 |
+| query cosine min | 0.9302 |
+| top-1 match rate | 0.7500 |
+| overlap@5 mean | 0.9300 |
+| reference top-1 MRR in NPU ranking | 0.8667 |
 
-The retrieval result is promising: top-5 overlap is high, and several top-1 disagreements appear to be between generic overview chunks and more specific product-page chunks rather than obvious failures.
+The retrieval result meets the current quality target: query cosine mean >= `0.93`, query cosine min >= `0.90`, overlap@5 >= `0.85`, and reference-top MRR >= `0.70`.
 
 ## What Is Not Committed
 
@@ -64,7 +74,7 @@ bash install/smoke_test.sh
 The installer downloads:
 
 ```text
-vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst
+vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.1.tar.zst
 ```
 
 from the GitHub release and installs the runtime files under:
@@ -74,6 +84,7 @@ from the GitHub release and installs the runtime files under:
 ```
 
 See `docs/prebuilt_runtime.md` for bundle creation and release upload instructions.
+See `docs/troubleshooting.md` if the NPU device, VIPLite runtime, or tokenizer is not found.
 
 ## Runtime Layout
 
@@ -104,21 +115,21 @@ The attention bias is `0.0` for real tokens and `-10000.0` for padding tokens.
 ## Run One Embedding
 
 ```bash
-cd /home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32
+cd ~/embeddinggemma_npu_seq128_bias_hidden_fp32
 ./embed_text_bias_hidden_npu.py "does Cubie A7S support NVMe storage?"
 ```
 
 The script uses:
 
 ```bash
-LD_LIBRARY_PATH=/home/radxa/ai-sdk/viplite-tina/lib/aarch64-none-linux-gnu/v2.0
-/home/radxa/ai-sdk/examples/vpm_run/vpm_run
+LD_LIBRARY_PATH=~/ai-sdk/viplite-tina/lib/aarch64-none-linux-gnu/v2.0
+~/ai-sdk/examples/vpm_run/vpm_run
 ```
 
 ## Run The RAG Demo
 
 ```bash
-cd /home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32/rag_demo
+cd ~/embeddinggemma_npu_seq128_bias_hidden_fp32/rag_demo
 ./build_index.py --max-chunks 12
 ./search_index.py "does Cubie A7S have NVMe support?"
 ```
@@ -136,14 +147,14 @@ This is a tiny directory-backed vector index, not a full vector database.
 ## Quality Eval
 
 ```bash
-cd /home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32/rag_demo
+cd ~/embeddinggemma_npu_seq128_bias_hidden_fp32/rag_demo
 ./evaluate_retrieval_quality.py --max-chunks 8 --top-k 5 --threads 4
 ```
 
 The latest summary from this board is included at:
 
 ```text
-artifacts/quality_eval_summary.json
+artifacts/quality_eval_summary_v0.1.1.json
 ```
 
 ## Ollama RAG WebUI
@@ -151,7 +162,7 @@ artifacts/quality_eval_summary.json
 An optional end-to-end demo is included in `webui/`. It uses the corrected NPU embedding path for retrieval and `qwen3:0.6b` through Ollama for answer generation.
 
 ```bash
-cd /home/radxa/rag_webui
+cd ~/rag_webui
 ./app.py
 ```
 
@@ -190,3 +201,7 @@ docs/export_commands.md
 ## Assessment
 
 The corrected NPU path is useful when CPU availability matters, for example indexing new knowledge in the background while CPU cores run an LLM. It does not currently beat a 4-thread CPU TFLite run on latency, but it preserves CPU headroom and now produces embeddings close enough to the original model to justify further quality and end-to-end RAG testing.
+
+## License
+
+Repository code is MIT licensed. See `docs/licensing.md` for model/runtime asset notes.

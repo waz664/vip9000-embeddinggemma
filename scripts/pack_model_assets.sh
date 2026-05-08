@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODEL_DIR="${1:-/home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32}"
-OUT_DIR="${2:-/home/radxa/vip9000-embeddinggemma/dist}"
-VERSION="${VERSION:-v0.1.0}"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MODEL_DIR="${1:-$HOME/embeddinggemma_npu_seq128_bias_hidden_fp32}"
+OUT_DIR="${2:-$REPO_DIR/dist}"
+TOKENIZER="${TOKENIZER:-$MODEL_DIR/tokenizer.model}"
+VERSION="${VERSION:-v0.1.1}"
 ZSTD_LEVEL="${ZSTD_LEVEL:-3}"
 ASSET="vip9000-embeddinggemma-a7s-seq128-fp32-${VERSION}.tar.zst"
 
@@ -23,6 +25,10 @@ for file in "${required[@]}"; do
     exit 1
   fi
 done
+if [[ ! -f "$MODEL_DIR/tokenizer.model" && ! -f "$TOKENIZER" ]]; then
+  echo "missing tokenizer.model. Set TOKENIZER=/path/to/tokenizer.model" >&2
+  exit 1
+fi
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -31,6 +37,11 @@ mkdir -p "$tmp/runtime"
 for file in "${required[@]}"; do
   cp "$MODEL_DIR/$file" "$tmp/runtime/$file"
 done
+if [[ -f "$MODEL_DIR/tokenizer.model" ]]; then
+  cp "$MODEL_DIR/tokenizer.model" "$tmp/runtime/tokenizer.model"
+else
+  cp "$TOKENIZER" "$tmp/runtime/tokenizer.model"
+fi
 
 cat > "$tmp/runtime/MANIFEST.json" <<EOF
 {
@@ -46,7 +57,7 @@ cat > "$tmp/runtime/MANIFEST.json" <<EOF
 }
 EOF
 
-(cd "$tmp/runtime" && sha256sum "${required[@]}" MANIFEST.json > SHA256SUMS)
+(cd "$tmp/runtime" && sha256sum "${required[@]}" tokenizer.model MANIFEST.json > SHA256SUMS)
 
 tar -C "$tmp" -I "zstd -${ZSTD_LEVEL} -T0" -cf "$OUT_DIR/$ASSET" runtime
 (cd "$OUT_DIR" && sha256sum "$ASSET" > "$ASSET.sha256")

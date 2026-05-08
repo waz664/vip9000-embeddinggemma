@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import json
 import math
+import os
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -11,16 +13,14 @@ from urllib.parse import urlparse
 import numpy as np
 
 
-import os
-
-MODEL_DIR = Path(os.environ.get("VIP9000_RAG_MODEL_DIR", "/home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32"))
+MODEL_DIR = Path(os.environ.get("VIP9000_RAG_MODEL_DIR", str(Path.home() / "embeddinggemma_npu_seq128_bias_hidden_fp32")))
 RAG_DIR = MODEL_DIR / "rag_demo" / "index"
+WORK_DIR = Path(os.environ.get("VIP9000_RAG_WORK_DIR", str(MODEL_DIR / "webui_work")))
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 OLLAMA_MODEL = "qwen3:0.6b"
 TOP_K = 2
+KB_MIN_COSINE = float(os.environ.get("VIP9000_RAG_MIN_COSINE", "0.35"))
 PORT = int(os.environ.get("VIP9000_RAG_PORT", "8080"))
-
-import sys
 
 sys.path.insert(0, str(MODEL_DIR))
 from embed_text_bias_hidden_npu import embed_text  # noqa: E402
@@ -41,7 +41,7 @@ def softmax(x: np.ndarray) -> np.ndarray:
 def retrieve(query: str) -> tuple[list[dict], float]:
     chunks, matrix = load_index()
     t0 = time.perf_counter()
-    q = embed_text(query, Path("/home/radxa/rag_webui/work"), "query", verbose=False)
+    q = embed_text(query, WORK_DIR, "query", verbose=False)
     embed_s = time.perf_counter() - t0
     scores = matrix @ q
     order = np.argsort(scores)[::-1][:TOP_K]
@@ -61,19 +61,23 @@ def retrieve(query: str) -> tuple[list[dict], float]:
     return hits, embed_s
 
 
-def ollama_answer(query: str, hits: list[dict]) -> tuple[str, float]:
-    context = "\n\n".join(
-        f"[{hit['rank']}] Source: {hit['url']}\n{hit['text'][:700]}" for hit in hits
-    )
-    system = (
-        "Answer using only the retrieved context. "
-        "Be concise. If the context is insufficient, say what is missing. "
-        "Cite sources with bracket numbers like [1]."
-    )
-    prompt = (
-        f"Retrieved context:\n{context}\n\n"
-        f"Question: {query}"
-    )
+def ollama_answer(query: str, hits: list[dict]) -> tuple[str, float, bool]:
+    use_kb = bool(hits and hits[0]["cosine"] >= KB_MIN_COSINE)
+    if use_kb:
+        context = "\n\n".join(
+            f"[{hit['rank']}] Source: {hit['url']}\n{hit['text'][:700]}" for hit in hits
+        )
+        system = (
+            "Answer using only the retrieved context. "
+            "Be concise. Cite sources with bracket numbers like [1]."
+        )
+        prompt = f"Retrieved context:\n{context}\n\nQuestion: {query}"
+    else:
+        system = (
+            "Answer normally and concisely. The local knowledgebase did not contain "
+            "a relevant source, so do not cite KB sources."
+        )
+        prompt = query
     payload = {
         "model": OLLAMA_MODEL,
         "messages": [
@@ -102,7 +106,7 @@ def ollama_answer(query: str, hits: list[dict]) -> tuple[str, float]:
             result = json.loads(response.read().decode("utf-8"))
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Ollama request failed: {exc}") from exc
-    return result.get("message", {}).get("content", "").strip(), time.perf_counter() - t0
+    return result.get("message", {}).get("content", "").strip(), time.perf_counter() - t0, use_kb
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -143,12 +147,15 @@ class Handler(BaseHTTPRequestHandler):
                 return
             t0 = time.perf_counter()
             hits, embed_s = retrieve(query)
-            answer, llm_s = ollama_answer(query, hits)
+            answer, llm_s, used_kb = ollama_answer(query, hits)
             self.send_json(
                 200,
                 {
                     "answer": answer,
-                    "hits": hits,
+                    "hits": hits if used_kb else [],
+                    "candidate_hits": hits,
+                    "used_kb": used_kb,
+                    "min_cosine": KB_MIN_COSINE,
                     "timing": {
                         "embedding_s": embed_s,
                         "llm_s": llm_s,

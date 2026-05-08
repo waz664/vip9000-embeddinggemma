@@ -93,12 +93,35 @@
     .chat {
       padding: 24px 28px;
       overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
     }
-    .answer {
+    .message {
+      max-width: 980px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .message.user {
+      align-self: flex-end;
+      background: #24222a;
+      max-width: 760px;
+    }
+    .message.assistant {
+      align-self: flex-start;
+    }
+    .answer, .question {
       max-width: 960px;
       line-height: 1.55;
       white-space: pre-wrap;
       font-size: 16px;
+    }
+    .meta {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
     }
     .placeholder {
       color: var(--muted);
@@ -196,7 +219,7 @@
       <div class="stats">
         <div class="stat"><b>Embedding</b><span>FP32 masked/bias seq128 NPU graph</span></div>
         <div class="stat"><b>Generator</b><span>qwen3:0.6b via Ollama</span></div>
-        <div class="stat"><b>Knowledgebase</b><span>Radxa Cubie A7S product and docs chunks</span></div>
+        <div class="stat"><b>Knowledgebase</b><span>Used only when retrieval clears the relevance threshold</span></div>
       </div>
     </aside>
     <main>
@@ -222,6 +245,8 @@
     const send = document.getElementById('send');
     const chat = document.getElementById('chat');
     const timing = document.getElementById('timing');
+    const history = [];
+    const esc = (s) => String(s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
     function sourceHtml(hit) {
       const text = hit.text.length > 520 ? hit.text.slice(0, 517) + '...' : hit.text;
@@ -232,17 +257,35 @@
           <span>p ${hit.probability.toFixed(3)}</span>
           <a href="${hit.url}" target="_blank" rel="noreferrer">${hit.url}</a>
         </div>
-        <p>${text.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</p>
+        <p>${esc(text)}</p>
       </div>`;
+    }
+
+    function render() {
+      if (!history.length) {
+        chat.innerHTML = '<div class="placeholder">Try: does Cubie A7S support NVMe storage?</div>';
+        return;
+      }
+      chat.innerHTML = history.map(item => {
+        if (item.role === 'user') {
+          return `<div class="message user"><div class="meta">You</div><div class="question">${esc(item.text)}</div></div>`;
+        }
+        const sources = item.hits && item.hits.length ? `<div class="sources">${item.hits.map(sourceHtml).join('')}</div>` : '';
+        const mode = item.used_kb ? 'Knowledgebase answer' : 'General answer';
+        return `<div class="message assistant"><div class="meta">${mode}</div><div class="answer">${esc(item.text)}</div>${sources}</div>`;
+      }).join('');
+      chat.scrollTop = chat.scrollHeight;
     }
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const value = query.value.trim();
       if (!value) return;
+      history.push({role: 'user', text: value});
+      render();
+      query.value = '';
       send.disabled = true;
       timing.textContent = 'Embedding query on NPU...';
-      chat.innerHTML = '<div class="placeholder">Working...</div>';
       try {
         const res = await fetch('/api/chat', {
           method: 'POST',
@@ -251,12 +294,14 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'request failed');
-        timing.textContent = `embedding ${data.timing.embedding_s.toFixed(1)}s · qwen ${data.timing.llm_s.toFixed(1)}s · total ${data.timing.total_s.toFixed(1)}s`;
-        chat.innerHTML = `<div class="answer">${(data.answer || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</div>
-          <div class="sources">${data.hits.map(sourceHtml).join('')}</div>`;
+        const kb = data.used_kb ? 'KB used' : `KB skipped (top hit below ${data.min_cosine.toFixed(2)})`;
+        timing.textContent = `${kb} · embedding ${data.timing.embedding_s.toFixed(1)}s · qwen ${data.timing.llm_s.toFixed(1)}s · total ${data.timing.total_s.toFixed(1)}s`;
+        history.push({role: 'assistant', text: data.answer || '', hits: data.hits || [], used_kb: data.used_kb});
+        render();
       } catch (err) {
         timing.textContent = 'Error';
-        chat.innerHTML = `<div class="placeholder">${String(err.message || err)}</div>`;
+        history.push({role: 'assistant', text: String(err.message || err), hits: [], used_kb: false});
+        render();
       } finally {
         send.disabled = false;
       }

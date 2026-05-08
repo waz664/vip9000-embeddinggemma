@@ -1,0 +1,418 @@
+{
+  "chunks": 16,
+  "queries": 20,
+  "top_k": 5,
+  "cpu_wall_s": 405.87765053700423,
+  "cpu_process_cpu_s": 1467.522905,
+  "npu_wall_s": 689.1745285920042,
+  "npu_process_plus_child_cpu_s": 106.50323799999984,
+  "doc_cos_mean": 0.9363743923604488,
+  "doc_cos_min": 0.8868585228919983,
+  "query_cos_mean": 0.9459549725055695,
+  "query_cos_min": 0.9301519989967346,
+  "top1_match_rate": 0.75,
+  "top_k_overlap_mean": 0.93,
+  "reference_top_mrr_in_npu": 0.8666666666666666,
+  "details": [
+    {
+      "query": "does Cubie A7S support NVMe storage?",
+      "cpu_top": [
+        11,
+        10,
+        0,
+        12,
+        14
+      ],
+      "npu_top": [
+        11,
+        10,
+        0,
+        12,
+        14
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9440591335296631
+    },
+    {
+      "query": "what is the NPU performance of the Cubie A7S?",
+      "cpu_top": [
+        11,
+        10,
+        12,
+        0,
+        9
+      ],
+      "npu_top": [
+        11,
+        10,
+        12,
+        0,
+        9
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9431002736091614
+    },
+    {
+      "query": "what CPU does the Radxa Cubie A7S use?",
+      "cpu_top": [
+        10,
+        0,
+        12,
+        11,
+        9
+      ],
+      "npu_top": [
+        10,
+        12,
+        0,
+        11,
+        9
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9478852152824402
+    },
+    {
+      "query": "does Cubie A7S support WiFi 6 and Bluetooth?",
+      "cpu_top": [
+        11,
+        12,
+        0,
+        10,
+        4
+      ],
+      "npu_top": [
+        11,
+        12,
+        0,
+        10,
+        4
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.946804404258728
+    },
+    {
+      "query": "what display output does Cubie A7S have?",
+      "cpu_top": [
+        11,
+        12,
+        10,
+        0,
+        8
+      ],
+      "npu_top": [
+        11,
+        12,
+        10,
+        0,
+        9
+      ],
+      "top_k_overlap": 0.8,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9512423276901245
+    },
+    {
+      "query": "can Cubie A7S encode or decode 4K video?",
+      "cpu_top": [
+        11,
+        3,
+        12,
+        9,
+        10
+      ],
+      "npu_top": [
+        11,
+        3,
+        9,
+        12,
+        4
+      ],
+      "top_k_overlap": 0.8,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9352967739105225
+    },
+    {
+      "query": "what camera interface is available on Cubie A7S?",
+      "cpu_top": [
+        11,
+        9,
+        12,
+        10,
+        3
+      ],
+      "npu_top": [
+        9,
+        11,
+        12,
+        3,
+        10
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 0.5,
+      "query_embedding_cosine": 0.9346095323562622
+    },
+    {
+      "query": "where can I download Cubie A7S images?",
+      "cpu_top": [
+        11,
+        10,
+        12,
+        0,
+        8
+      ],
+      "npu_top": [
+        11,
+        12,
+        9,
+        8,
+        10
+      ],
+      "top_k_overlap": 0.8,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9445827007293701
+    },
+    {
+      "query": "what are the dimensions of the Cubie A7S board?",
+      "cpu_top": [
+        10,
+        12,
+        11,
+        0,
+        9
+      ],
+      "npu_top": [
+        12,
+        10,
+        11,
+        0,
+        9
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 0.5,
+      "query_embedding_cosine": 0.9544613361358643
+    },
+    {
+      "query": "what memory type does Cubie A7S use?",
+      "cpu_top": [
+        11,
+        10,
+        12,
+        0,
+        9
+      ],
+      "npu_top": [
+        11,
+        10,
+        12,
+        0,
+        9
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9598616361618042
+    },
+    {
+      "query": "does Cubie A7S have PCIe 3.0?",
+      "cpu_top": [
+        11,
+        10,
+        0,
+        12,
+        15
+      ],
+      "npu_top": [
+        11,
+        10,
+        12,
+        0,
+        9
+      ],
+      "top_k_overlap": 0.8,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9301519989967346
+    },
+    {
+      "query": "what GPU is in the Allwinner A733?",
+      "cpu_top": [
+        0,
+        10,
+        12,
+        11,
+        1
+      ],
+      "npu_top": [
+        0,
+        12,
+        10,
+        1,
+        11
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9479367733001709
+    },
+    {
+      "query": "what CPU cores are in the Allwinner A733?",
+      "cpu_top": [
+        0,
+        10,
+        12,
+        11,
+        1
+      ],
+      "npu_top": [
+        0,
+        12,
+        10,
+        1,
+        11
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9497312307357788
+    },
+    {
+      "query": "what USB-C display capability does Cubie A7S provide?",
+      "cpu_top": [
+        11,
+        12,
+        0,
+        10,
+        8
+      ],
+      "npu_top": [
+        11,
+        12,
+        10,
+        0,
+        14
+      ],
+      "top_k_overlap": 0.8,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9475127458572388
+    },
+    {
+      "query": "what operating system images are available for Cubie A7S?",
+      "cpu_top": [
+        11,
+        12,
+        10,
+        0,
+        9
+      ],
+      "npu_top": [
+        12,
+        11,
+        10,
+        0,
+        9
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 0.5,
+      "query_embedding_cosine": 0.9437757730484009
+    },
+    {
+      "query": "how do I get started with the Cubie A7S?",
+      "cpu_top": [
+        10,
+        12,
+        11,
+        0,
+        9
+      ],
+      "npu_top": [
+        12,
+        11,
+        10,
+        9,
+        0
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 0.3333333333333333,
+      "query_embedding_cosine": 0.9503965377807617
+    },
+    {
+      "query": "what power connector does Cubie A7S use?",
+      "cpu_top": [
+        11,
+        10,
+        12,
+        0,
+        9
+      ],
+      "npu_top": [
+        11,
+        12,
+        10,
+        0,
+        9
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9537404179573059
+    },
+    {
+      "query": "does the Cubie A7S support MIPI CSI cameras?",
+      "cpu_top": [
+        9,
+        11,
+        12,
+        10,
+        0
+      ],
+      "npu_top": [
+        9,
+        11,
+        12,
+        3,
+        10
+      ],
+      "top_k_overlap": 0.8,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9388588666915894
+    },
+    {
+      "query": "what is the RISC-V controller used for?",
+      "cpu_top": [
+        4,
+        1,
+        15,
+        10,
+        2
+      ],
+      "npu_top": [
+        1,
+        4,
+        2,
+        10,
+        13
+      ],
+      "top_k_overlap": 0.8,
+      "reference_top_reciprocal_rank_in_npu": 0.5,
+      "query_embedding_cosine": 0.952824592590332
+    },
+    {
+      "query": "what is the target use case for Cubie A7S?",
+      "cpu_top": [
+        11,
+        10,
+        12,
+        0,
+        9
+      ],
+      "npu_top": [
+        11,
+        10,
+        12,
+        0,
+        9
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9422671794891357
+    }
+  ]
+}
