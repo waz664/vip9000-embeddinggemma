@@ -1,0 +1,16 @@
+{
+  "chunks": 8,
+  "queries": 8,
+  "top_k": 5,
+  "cpu_wall_s": 181.20125098800054,
+  "cpu_process_cpu_s": 654.345408,
+  "npu_wall_s": 308.335364381026,
+  "npu_process_plus_child_cpu_s": 48.79376099999997,
+  "doc_cos_mean": 0.9284618571400642,
+  "doc_cos_min": 0.9029045701026917,
+  "query_cos_mean": 0.943447545170784,
+  "query_cos_min": 0.9346095323562622,
+  "top1_match_rate": 0.625,
+  "top_k_overlap_mean": 0.925,
+  "reference_top_mrr_in_npu": 0.75
+}
