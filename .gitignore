@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.dat
+*.npy
+*.nb
+*.onnx
+*.tflite
+*.data
+*.json.tmp
+work/
+bench_work*/
+index/
+quality_eval/
+.venv/
+.env

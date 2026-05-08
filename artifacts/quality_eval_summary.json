@@ -1,0 +1,178 @@
+{
+  "chunks": 8,
+  "queries": 8,
+  "top_k": 5,
+  "cpu_wall_s": 181.20125098800054,
+  "cpu_process_cpu_s": 654.345408,
+  "npu_wall_s": 308.335364381026,
+  "npu_process_plus_child_cpu_s": 48.79376099999997,
+  "doc_cos_mean": 0.9284618571400642,
+  "doc_cos_min": 0.9029045701026917,
+  "query_cos_mean": 0.943447545170784,
+  "query_cos_min": 0.9346095323562622,
+  "top1_match_rate": 0.625,
+  "top_k_overlap_mean": 0.925,
+  "reference_top_mrr_in_npu": 0.75,
+  "details": [
+    {
+      "query": "does Cubie A7S support NVMe storage?",
+      "cpu_top": [
+        7,
+        0,
+        5,
+        1,
+        2
+      ],
+      "npu_top": [
+        7,
+        0,
+        5,
+        1,
+        2
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9440591335296631
+    },
+    {
+      "query": "what is the NPU performance of the Cubie A7S?",
+      "cpu_top": [
+        7,
+        0,
+        5,
+        1,
+        2
+      ],
+      "npu_top": [
+        7,
+        0,
+        5,
+        1,
+        2
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9431002736091614
+    },
+    {
+      "query": "what CPU does the Radxa Cubie A7S use?",
+      "cpu_top": [
+        7,
+        0,
+        5,
+        1,
+        6
+      ],
+      "npu_top": [
+        7,
+        0,
+        5,
+        6,
+        1
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9478852152824402
+    },
+    {
+      "query": "does Cubie A7S support WiFi 6 and Bluetooth?",
+      "cpu_top": [
+        0,
+        7,
+        2,
+        5,
+        1
+      ],
+      "npu_top": [
+        0,
+        7,
+        5,
+        1,
+        2
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.946804404258728
+    },
+    {
+      "query": "what display output does Cubie A7S have?",
+      "cpu_top": [
+        7,
+        0,
+        5,
+        2,
+        1
+      ],
+      "npu_top": [
+        7,
+        0,
+        5,
+        2,
+        1
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 1.0,
+      "query_embedding_cosine": 0.9512423276901245
+    },
+    {
+      "query": "can Cubie A7S encode or decode 4K video?",
+      "cpu_top": [
+        7,
+        2,
+        0,
+        5,
+        1
+      ],
+      "npu_top": [
+        2,
+        0,
+        7,
+        5,
+        6
+      ],
+      "top_k_overlap": 0.8,
+      "reference_top_reciprocal_rank_in_npu": 0.3333333333333333,
+      "query_embedding_cosine": 0.9352967739105225
+    },
+    {
+      "query": "what camera interface is available on Cubie A7S?",
+      "cpu_top": [
+        7,
+        5,
+        2,
+        0,
+        6
+      ],
+      "npu_top": [
+        2,
+        5,
+        7,
+        6,
+        0
+      ],
+      "top_k_overlap": 1.0,
+      "reference_top_reciprocal_rank_in_npu": 0.3333333333333333,
+      "query_embedding_cosine": 0.9346095323562622
+    },
+    {
+      "query": "where can I download Cubie A7S images?",
+      "cpu_top": [
+        7,
+        0,
+        5,
+        1,
+        3
+      ],
+      "npu_top": [
+        0,
+        5,
+        7,
+        6,
+        2
+      ],
+      "top_k_overlap": 0.6,
+      "reference_top_reciprocal_rank_in_npu": 0.3333333333333333,
+      "query_embedding_cosine": 0.9445827007293701
+    }
+  ]
+}

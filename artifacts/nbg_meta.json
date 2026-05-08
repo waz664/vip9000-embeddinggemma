@@ -1,0 +1,38 @@
+{
+    "Inputs": {
+        "inputs_embeds_2904": {
+            "name": "inputs_embeds",
+            "shape": [
+                1,
+                128,
+                768
+            ],
+            "format": "nchw",
+            "dtype": "float32"
+        },
+        "attention_bias_2905": {
+            "name": "attention_bias",
+            "shape": [
+                1,
+                1,
+                1,
+                128
+            ],
+            "format": "nchw",
+            "dtype": "float32"
+        }
+    },
+    "Outputs": {
+        "attach_type_as_144/out0_0": {
+            "name": "attach_type_as_144/out0",
+            "shape": [
+                1,
+                128,
+                768
+            ],
+            "format": "nchw",
+            "dtype": "float32"
+        }
+    },
+    "Recurrent_connections": {}
+}
