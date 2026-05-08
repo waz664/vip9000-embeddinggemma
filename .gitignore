@@ -13,3 +13,4 @@ index/
 quality_eval/
 .venv/
 .env
+dist/
