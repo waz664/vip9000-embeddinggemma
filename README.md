@@ -56,9 +56,9 @@ Once the release asset is uploaded, users do not need to convert the model thems
 ```bash
 git clone https://github.com/waz664/vip9000-embeddinggemma.git
 cd vip9000-embeddinggemma
-./install/setup_radxa_dependencies.sh
-./install/install_runtime.sh
-./install/smoke_test.sh
+bash install/setup_radxa_dependencies.sh
+bash install/install_runtime.sh
+bash install/smoke_test.sh
 ```
 
 The installer downloads:
@@ -105,7 +105,7 @@ The attention bias is `0.0` for real tokens and `-10000.0` for padding tokens.
 
 ```bash
 cd /home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32
-./embed_text_bias_hidden_npu.py "does Cubie A7S support NVMe storage?"
+python3 ./embed_text_bias_hidden_npu.py "does Cubie A7S support NVMe storage?"
 ```
 
 The script uses:
@@ -119,8 +119,8 @@ LD_LIBRARY_PATH=/home/radxa/ai-sdk/viplite-tina/lib/aarch64-none-linux-gnu/v2.0
 
 ```bash
 cd /home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32/rag_demo
-./build_index.py --max-chunks 12
-./search_index.py "does Cubie A7S have NVMe support?"
+python3 ./build_index.py --max-chunks 12
+python3 ./search_index.py "does Cubie A7S have NVMe support?"
 ```
 
 The demo stores:
@@ -137,7 +137,7 @@ This is a tiny directory-backed vector index, not a full vector database.
 
 ```bash
 cd /home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32/rag_demo
-./evaluate_retrieval_quality.py --max-chunks 8 --top-k 5 --threads 4
+python3 ./evaluate_retrieval_quality.py --max-chunks 8 --top-k 5 --threads 4
 ```
 
 The latest summary from this board is included at:
@@ -152,7 +152,7 @@ An optional end-to-end demo is included in `webui/`. It uses the corrected NPU e
 
 ```bash
 cd /home/radxa/rag_webui
-./app.py
+python3 ./app.py
 ```
 
 Open `http://<radxa-ip>:8080`.
