@@ -10,6 +10,12 @@ import sentencepiece as spm
 
 
 ROOT = Path(__file__).resolve().parent
+TOKENIZER = Path(os.environ.get("EMBEDDINGGEMMA_TOKENIZER", ROOT / "tokenizer.model"))
+VPM_RUN = os.environ.get("VIP9000_VPM_RUN", str(Path.home() / "ai-sdk/examples/vpm_run/vpm_run"))
+VIPLITE_LIB = os.environ.get(
+    "VIP9000_VIPLIB",
+    str(Path.home() / "ai-sdk/viplite-tina/lib/aarch64-none-linux-gnu/v2.0"),
+)
 SEQ_LEN = 128
 HIDDEN = 768
 VOCAB = 262144
@@ -20,7 +26,7 @@ MASK_BIAS = -10000.0
 
 
 def token_ids(text: str) -> list[int]:
-    sp = spm.SentencePieceProcessor(model_file="/home/radxa/embeddinggemma/tokenizer.model")
+    sp = spm.SentencePieceProcessor(model_file=str(TOKENIZER))
     pieces = sp.encode(text, out_type=int)
     ids = [BOS_ID] + pieces[: SEQ_LEN - 2] + [EOS_ID]
     ids.extend([PAD_ID] * (SEQ_LEN - len(ids)))
@@ -69,10 +75,10 @@ def embed_text(text: str, work_dir: Path, stem: str = "query", verbose: bool = F
     )
 
     env = os.environ.copy()
-    env["LD_LIBRARY_PATH"] = "/home/radxa/ai-sdk/viplite-tina/lib/aarch64-none-linux-gnu/v2.0"
+    env["LD_LIBRARY_PATH"] = VIPLITE_LIB + os.pathsep + env.get("LD_LIBRARY_PATH", "")
     stdout = None if verbose else subprocess.DEVNULL
     subprocess.run(
-        ["/home/radxa/ai-sdk/examples/vpm_run/vpm_run", "-s", str(sample), "-l", "1", "-b", "0"],
+        [VPM_RUN, "-s", str(sample), "-l", "1", "-b", "0"],
         cwd=work_dir,
         env=env,
         stdout=stdout,

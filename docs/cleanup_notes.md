@@ -3,7 +3,7 @@
 The working runtime directory on the Radxa board is:
 
 ```text
-/home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32
+~/embeddinggemma_npu_seq128_bias_hidden_fp32
 ```
 
 Useful files inside it:
@@ -22,19 +22,19 @@ rag_demo/
 Older experimental directories can be removed after this repo is created and the corrected runtime is preserved:
 
 ```text
-/home/radxa/embeddinggemma_npu_seq128
-/home/radxa/embeddinggemma_npu_seq128_prenorm
-/home/radxa/embeddinggemma_npu_seq128_prenorm_fp32
-/home/radxa/embeddinggemma_npu_seq128_hidden_fp32
+~/embeddinggemma_npu_seq128
+~/embeddinggemma_npu_seq128_prenorm
+~/embeddinggemma_npu_seq128_prenorm_fp32
+~/embeddinggemma_npu_seq128_hidden_fp32
 ```
 
 Do not remove:
 
 ```text
-/home/radxa/llama.cpp
-/home/radxa/ai-sdk
-/home/radxa/embeddinggemma
-/home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32
+~/llama.cpp
+~/ai-sdk
+~/embeddinggemma
+~/embeddinggemma_npu_seq128_bias_hidden_fp32
 ```
 
 `ai-sdk` is required for VIPLite runtime and `vpm_run`.

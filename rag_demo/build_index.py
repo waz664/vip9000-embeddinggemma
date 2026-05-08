@@ -28,13 +28,13 @@ class TextExtractor(HTMLParser):
         self.parts: list[str] = []
 
     def handle_starttag(self, tag: str, attrs) -> None:
-        if tag in {"script", "style", "svg", "nav", "footer"}:
+        if tag in {"script", "style", "svg", "nav", "footer", "header", "button"}:
             self.skip += 1
         if tag in {"p", "li", "tr", "h1", "h2", "h3", "h4"}:
             self.parts.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
-        if tag in {"script", "style", "svg", "nav", "footer"} and self.skip:
+        if tag in {"script", "style", "svg", "nav", "footer", "header", "button"} and self.skip:
             self.skip -= 1
         if tag in {"p", "li", "tr", "h1", "h2", "h3", "h4"}:
             self.parts.append("\n")
@@ -51,6 +51,8 @@ def html_to_text(raw_html: str) -> str:
     text = re.sub(r"[ \t\r\f\v]+", " ", text)
     text = re.sub(r"\n\s+", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"Skip to main content", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"(Overview|Documentation|Downloads|FAQs|Support|Accessories|Buy)(\s+\1)+", r"\1", text)
     return text.strip()
 
 
@@ -60,10 +62,11 @@ def fetch_page(url: str) -> str:
     return html_to_text(response.text)
 
 
-def chunk_text(source: str, url: str, max_words: int = 110) -> list[dict]:
+def chunk_text(source: str, url: str, max_words: int = 90, overlap_words: int = 20) -> list[dict]:
     words = source.split()
     chunks = []
-    for start in range(0, len(words), max_words):
+    step = max(max_words - overlap_words, 1)
+    for start in range(0, len(words), step):
         piece = " ".join(words[start : start + max_words]).strip()
         if len(piece) < 120:
             continue
@@ -75,6 +78,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Build a tiny directory-backed vector index with the Radxa NPU.")
     parser.add_argument("--index-dir", default="index")
     parser.add_argument("--max-chunks", type=int, default=12)
+    parser.add_argument("--chunk-words", type=int, default=90)
+    parser.add_argument("--overlap-words", type=int, default=20)
     parser.add_argument("--verbose-npu", action="store_true")
     args = parser.parse_args()
 
@@ -86,7 +91,7 @@ def main() -> int:
     chunks = []
     for url in DEFAULT_URLS:
         print(f"fetch {url}", flush=True)
-        chunks.extend(chunk_text(fetch_page(url), url))
+        chunks.extend(chunk_text(fetch_page(url), url, args.chunk_words, args.overlap_words))
 
     chunks = chunks[: args.max_chunks]
     if not chunks:

@@ -10,6 +10,7 @@ required=(
   token_embedding_fp16.dat
   dense_2_weight_f32.npy
   dense_3_weight_f32.npy
+  tokenizer.model
   embed_text_bias_hidden_npu.py
 )
 

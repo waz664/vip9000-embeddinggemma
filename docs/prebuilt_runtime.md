@@ -5,7 +5,7 @@ The prebuilt runtime bundle contains the files needed to run the corrected FP32 
 Bundle name:
 
 ```text
-vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst
+vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.1.tar.zst
 ```
 
 Contents:
@@ -38,13 +38,13 @@ bash install/smoke_test.sh
 By default, `install_runtime.sh` downloads from:
 
 ```text
-https://github.com/waz664/vip9000-embeddinggemma/releases/download/v0.1.0/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst
+https://github.com/waz664/vip9000-embeddinggemma/releases/download/v0.1.1/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.1.tar.zst
 ```
 
 To install from a local asset file:
 
 ```bash
-LOCAL_ASSET=/path/to/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst \
+LOCAL_ASSET=/path/to/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.1.tar.zst \
   bash install/install_runtime.sh
 ```
 
@@ -53,15 +53,15 @@ LOCAL_ASSET=/path/to/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst \
 On a board that already has the working runtime directory:
 
 ```bash
-cd /home/radxa/vip9000-embeddinggemma
+cd ~/vip9000-embeddinggemma
 bash scripts/pack_model_assets.sh
 ```
 
 This writes:
 
 ```text
-dist/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst
-dist/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst.sha256
+dist/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.1.tar.zst
+dist/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.1.tar.zst.sha256
 ```
 
 ## Upload To GitHub Release
@@ -69,10 +69,10 @@ dist/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst.sha256
 Normal git cannot store this bundle because the binary files exceed GitHub's regular file-size limit. Upload it as a release asset:
 
 ```bash
-cd /home/radxa/vip9000-embeddinggemma
-gh release create v0.1.0 \
-  dist/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst \
-  dist/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst.sha256 \
+cd ~/vip9000-embeddinggemma
+gh release create v0.1.1 \
+  dist/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.1.tar.zst \
+  dist/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.1.tar.zst.sha256 \
   --repo waz664/vip9000-embeddinggemma \
   --title "VIP9000 EmbeddingGemma A7S seq128 FP32 runtime" \
   --notes "Prebuilt VIPLite NBG and CPU-side embedding tables for Radxa Cubie A7S / Allwinner A733."
@@ -90,7 +90,7 @@ Then rerun the release command.
 
 ```bash
 cd ~/embeddinggemma_npu_seq128_bias_hidden_fp32
-python3 ./rag_demo/build_index.py --max-chunks 8
+./rag_demo/build_index.py --max-chunks 8
 bash ~/vip9000-embeddinggemma/install/run_webui.sh
 ```
 

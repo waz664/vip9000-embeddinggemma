@@ -5,36 +5,234 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cubie A7S RAG</title>
   <style>
-    body { margin: 0; font-family: system-ui, sans-serif; background: #101114; color: #f3f5f7; }
-    .shell { display: grid; grid-template-columns: 320px 1fr; min-height: 100vh; }
-    aside { background: #15171c; border-right: 1px solid #303440; padding: 24px; }
-    main { display: grid; grid-template-rows: auto 1fr auto; }
-    header, form { padding: 18px 28px; border-bottom: 1px solid #303440; }
-    form { border-top: 1px solid #303440; border-bottom: 0; display: grid; grid-template-columns: 1fr auto; gap: 12px; }
-    input { background: #20232b; color: #f3f5f7; border: 1px solid #303440; border-radius: 8px; padding: 14px; font-size: 15px; }
-    button { background: #ee4b4b; color: white; border: 0; border-radius: 8px; padding: 0 20px; font-weight: 700; }
-    .chat { padding: 24px 28px; overflow: auto; }
-    .muted { color: #a9b0bb; }
-    .answer { white-space: pre-wrap; line-height: 1.55; max-width: 960px; }
-    .source { margin-top: 12px; border: 1px solid #303440; background: #181a20; border-radius: 8px; padding: 14px; }
-    .source a { color: #f6b14a; text-decoration: none; }
-    .score { color: #58d68d; }
-    @media (max-width: 800px) { .shell { grid-template-columns: 1fr; } form { grid-template-columns: 1fr; } button { height: 46px; } }
+    :root {
+      color-scheme: dark;
+      --bg: #101114;
+      --panel: #181a20;
+      --panel-2: #20232b;
+      --text: #f3f5f7;
+      --muted: #a9b0bb;
+      --line: #303440;
+      --accent: #ee4b4b;
+      --accent-2: #f6b14a;
+      --good: #58d68d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    aside {
+      border-right: 1px solid var(--line);
+      background: #15171c;
+      padding: 24px;
+    }
+    main {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-width: 0;
+    }
+    header {
+      padding: 22px 28px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    .sub {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .badge {
+      border: 1px solid #6e2d2d;
+      background: #2b181b;
+      color: #ffd8d8;
+      border-radius: 999px;
+      padding: 7px 11px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .stats {
+      display: grid;
+      gap: 10px;
+      margin-top: 24px;
+    }
+    .stat {
+      padding: 12px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+    }
+    .stat b {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .chat {
+      padding: 24px 28px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .message {
+      max-width: 980px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .message.user {
+      align-self: flex-end;
+      background: #24222a;
+      max-width: 760px;
+    }
+    .message.assistant {
+      align-self: flex-start;
+    }
+    .answer, .question {
+      max-width: 960px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      font-size: 16px;
+    }
+    .meta {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .placeholder {
+      color: var(--muted);
+      max-width: 720px;
+      line-height: 1.55;
+    }
+    .sources {
+      margin-top: 24px;
+      display: grid;
+      gap: 12px;
+      max-width: 980px;
+    }
+    .source {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .source-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .rank {
+      width: 26px;
+      height: 26px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-weight: 700;
+    }
+    .score { color: var(--good); }
+    .source p {
+      margin: 0;
+      color: #d7dbe2;
+      line-height: 1.45;
+      font-size: 14px;
+    }
+    .source a {
+      color: var(--accent-2);
+      text-decoration: none;
+    }
+    form {
+      border-top: 1px solid var(--line);
+      padding: 18px 28px 22px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      background: #13151a;
+    }
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 14px 15px;
+      font-size: 15px;
+      outline: none;
+    }
+    input:focus { border-color: var(--accent); }
+    button {
+      border: 0;
+      background: var(--accent);
+      color: white;
+      border-radius: 8px;
+      padding: 0 20px;
+      font-weight: 700;
+      min-width: 104px;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: .55;
+      cursor: wait;
+    }
+    @media (max-width: 820px) {
+      .shell { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      header, .chat, form { padding-left: 18px; padding-right: 18px; }
+      form { grid-template-columns: 1fr; }
+      button { height: 46px; }
+    }
   </style>
 </head>
 <body>
   <div class="shell">
     <aside>
       <h1>Radxa Cubie A7S RAG</h1>
-      <p class="muted">EmbeddingGemma retrieval on VIP9000 NPU, Qwen3 0.6B answer generation through Ollama.</p>
-      <p class="muted">Knowledgebase: Radxa Cubie A7S product and docs chunks.</p>
+      <div class="sub">EmbeddingGemma runs the retrieval embedding on the VIP9000 NPU. Qwen3 0.6B answers through Ollama using the retrieved context.</div>
+      <div class="stats">
+        <div class="stat"><b>Embedding</b><span>FP32 masked/bias seq128 NPU graph</span></div>
+        <div class="stat"><b>Generator</b><span>qwen3:0.6b via Ollama</span></div>
+        <div class="stat"><b>Knowledgebase</b><span>Used only when retrieval clears the relevance threshold</span></div>
+      </div>
     </aside>
     <main>
       <header>
-        <h2>Ask the local knowledgebase</h2>
-        <div class="muted" id="timing">Ready</div>
+        <div>
+          <h1>Ask the local knowledgebase</h1>
+          <div class="sub" id="timing">Ready</div>
+        </div>
+        <div class="badge">NPU retrieval</div>
       </header>
-      <section class="chat" id="chat"><div class="muted">Try: does Cubie A7S support NVMe storage?</div></section>
+      <section class="chat" id="chat">
+        <div class="placeholder">Try: does Cubie A7S support NVMe storage?</div>
+      </section>
       <form id="form">
         <input id="query" autocomplete="off" value="does Cubie A7S support NVMe storage?">
         <button id="send" type="submit">Ask</button>
@@ -47,27 +245,63 @@
     const send = document.getElementById('send');
     const chat = document.getElementById('chat');
     const timing = document.getElementById('timing');
-    const esc = s => String(s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const history = [];
+    const esc = (s) => String(s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
     function sourceHtml(hit) {
       const text = hit.text.length > 520 ? hit.text.slice(0, 517) + '...' : hit.text;
-      return `<div class="source"><div><b>${hit.rank}</b> <span class="score">cos ${hit.cosine.toFixed(4)}</span> p ${hit.probability.toFixed(3)} <a href="${hit.url}" target="_blank">${hit.url}</a></div><p>${esc(text)}</p></div>`;
+      return `<div class="source">
+        <div class="source-top">
+          <span class="rank">${hit.rank}</span>
+          <span class="score">cos ${hit.cosine.toFixed(4)}</span>
+          <span>p ${hit.probability.toFixed(3)}</span>
+          <a href="${hit.url}" target="_blank" rel="noreferrer">${hit.url}</a>
+        </div>
+        <p>${esc(text)}</p>
+      </div>`;
     }
+
+    function render() {
+      if (!history.length) {
+        chat.innerHTML = '<div class="placeholder">Try: does Cubie A7S support NVMe storage?</div>';
+        return;
+      }
+      chat.innerHTML = history.map(item => {
+        if (item.role === 'user') {
+          return `<div class="message user"><div class="meta">You</div><div class="question">${esc(item.text)}</div></div>`;
+        }
+        const sources = item.hits && item.hits.length ? `<div class="sources">${item.hits.map(sourceHtml).join('')}</div>` : '';
+        const mode = item.used_kb ? 'Knowledgebase answer' : 'General answer';
+        return `<div class="message assistant"><div class="meta">${mode}</div><div class="answer">${esc(item.text)}</div>${sources}</div>`;
+      }).join('');
+      chat.scrollTop = chat.scrollHeight;
+    }
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const value = query.value.trim();
       if (!value) return;
+      history.push({role: 'user', text: value});
+      render();
+      query.value = '';
       send.disabled = true;
       timing.textContent = 'Embedding query on NPU...';
-      chat.innerHTML = '<div class="muted">Working...</div>';
       try {
-        const res = await fetch('/api/chat', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({query: value})});
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({query: value})
+        });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'request failed');
-        timing.textContent = `embedding ${data.timing.embedding_s.toFixed(1)}s · qwen ${data.timing.llm_s.toFixed(1)}s · total ${data.timing.total_s.toFixed(1)}s`;
-        chat.innerHTML = `<div class="answer">${esc(data.answer)}</div>${data.hits.map(sourceHtml).join('')}`;
+        const kb = data.used_kb ? 'KB used' : `KB skipped (top hit below ${data.min_cosine.toFixed(2)})`;
+        timing.textContent = `${kb} · embedding ${data.timing.embedding_s.toFixed(1)}s · qwen ${data.timing.llm_s.toFixed(1)}s · total ${data.timing.total_s.toFixed(1)}s`;
+        history.push({role: 'assistant', text: data.answer || '', hits: data.hits || [], used_kb: data.used_kb});
+        render();
       } catch (err) {
         timing.textContent = 'Error';
-        chat.innerHTML = `<div class="muted">${esc(err.message || err)}</div>`;
+        history.push({role: 'assistant', text: String(err.message || err), hits: [], used_kb: false});
+        render();
       } finally {
         send.disabled = false;
       }

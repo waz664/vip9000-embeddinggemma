@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 import argparse
-import importlib.util
 import os
 import resource
-import sys
 import time
 from pathlib import Path
 from typing import Optional
@@ -12,28 +10,20 @@ import numpy as np
 import sentencepiece as spm
 import tensorflow as tf
 
-from embed_text_bias_hidden_npu import embed_text as embed_text_bias_npu
+from npu_embed import embed_text
 
 
-ROOT = Path(__file__).resolve().parent
+MODEL_DIR = Path(__file__).resolve().parents[1]
 TFLITE_MODEL = os.environ.get(
     "EMBEDDINGGEMMA_TFLITE",
     str(Path.home() / "embeddinggemma/embeddinggemma-300M_seq1024_mixed-precision.tflite"),
 )
-TOKENIZER = os.environ.get("EMBEDDINGGEMMA_TOKENIZER", str(ROOT / "tokenizer.model"))
-OLD_HIDDEN_RUNNER = os.environ.get(
-    "OLD_HIDDEN_RUNNER",
-    str(Path.home() / "embeddinggemma_npu_seq128_hidden_fp32/embed_text_hidden_npu.py"),
-)
+TOKENIZER = os.environ.get("EMBEDDINGGEMMA_TOKENIZER", str(MODEL_DIR / "tokenizer.model"))
 
 
 def cpu_seconds(kind: int) -> float:
     usage = resource.getrusage(kind)
     return float(usage.ru_utime + usage.ru_stime)
-
-
-def cosine(a: np.ndarray, b: np.ndarray) -> float:
-    return float(np.dot(a, b) / max(float(np.linalg.norm(a) * np.linalg.norm(b)), 1e-12))
 
 
 def token_ids(text: str, seq_len: int) -> np.ndarray:
@@ -45,6 +35,7 @@ def token_ids(text: str, seq_len: int) -> np.ndarray:
 
 def run_cpu_tflite(text: str, threads: int) -> dict:
     ids = token_ids(text, 1024)
+
     t0 = time.perf_counter()
     interpreter = tf.lite.Interpreter(model_path=TFLITE_MODEL, num_threads=threads)
     create_s = time.perf_counter() - t0
@@ -76,32 +67,23 @@ def run_cpu_tflite(text: str, threads: int) -> dict:
     }
 
 
-def run_npu(name: str, func, text: str, work_dir: Path, verbose: bool) -> dict:
+def run_npu(text: str, work_dir: Path, verbose: bool) -> dict:
     self0 = cpu_seconds(resource.RUSAGE_SELF)
     child0 = cpu_seconds(resource.RUSAGE_CHILDREN)
     t0 = time.perf_counter()
-    embedding = func(text, work_dir, name, verbose=verbose)
+    embedding = embed_text(text, work_dir, "bench_npu", verbose=verbose)
     wall_s = time.perf_counter() - t0
     cpu_s = (cpu_seconds(resource.RUSAGE_SELF) - self0) + (cpu_seconds(resource.RUSAGE_CHILDREN) - child0)
     return {
-        "name": name,
+        "name": "npu_viplite_masked_bias_hidden_fp32_seq128",
         "wall_s": wall_s,
         "cpu_s": cpu_s,
         "embedding": embedding,
     }
 
 
-def load_old_hidden_embedder():
-    path = Path(OLD_HIDDEN_RUNNER)
-    if not path.exists():
-        return None
-    spec = importlib.util.spec_from_file_location("old_hidden_embedder", path)
-    if spec is None or spec.loader is None:
-        return None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module.embed_text
+def cosine(a: np.ndarray, b: np.ndarray) -> float:
+    return float(np.dot(a, b) / max(float(np.linalg.norm(a) * np.linalg.norm(b)), 1e-12))
 
 
 def print_result(result: dict, baseline: Optional[np.ndarray] = None) -> None:
@@ -119,16 +101,18 @@ def print_result(result: dict, baseline: Optional[np.ndarray] = None) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Compare masked FP32 NPU EmbeddingGemma against CPU TFLite.")
+    parser = argparse.ArgumentParser(description="Compare CPU-only TFLite vs VIP9000 NPU embedding latency/load.")
     parser.add_argument("text", nargs="?", default="does Cubie A7S support NVMe storage?")
-    parser.add_argument("--threads", default="1,4", help="Comma-separated CPU TFLite thread counts.")
-    parser.add_argument("--skip-old-npu", action="store_true")
+    parser.add_argument("--threads", default="1,4,8", help="Comma-separated CPU TFLite thread counts.")
     parser.add_argument("--verbose-npu", action="store_true")
     args = parser.parse_args()
 
+    here = Path(__file__).resolve().parent
+    work_dir = here / "bench_work"
     thread_counts = [int(x) for x in args.threads.split(",") if x.strip()]
+
     print(f"text={args.text!r}")
-    print("note=CPU TFLite is the official seq1024 model. NPU models use seq128 transformer NBGs plus CPU pooling/dense tail.")
+    print("note=CPU TFLite is the original fixed seq1024 model; NPU path is the masked/bias seq128 transformer NBG.")
     print()
 
     cpu_results = [run_cpu_tflite(args.text, threads) for threads in thread_counts]
@@ -137,26 +121,8 @@ def main() -> int:
         print_result(result, baseline)
         print()
 
-    old_embedder = load_old_hidden_embedder()
-    if old_embedder is not None and not args.skip_old_npu:
-        result = run_npu(
-            "npu_unmasked_hidden_fp32_seq128",
-            old_embedder,
-            args.text,
-            ROOT / "bench_work_old",
-            args.verbose_npu,
-        )
-        print_result(result, baseline)
-        print()
-
-    result = run_npu(
-        "npu_masked_bias_hidden_fp32_seq128",
-        embed_text_bias_npu,
-        args.text,
-        ROOT / "bench_work_bias",
-        args.verbose_npu,
-    )
-    print_result(result, baseline)
+    npu_result = run_npu(args.text, work_dir, args.verbose_npu)
+    print_result(npu_result, baseline)
     return 0
 
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="${REPO:-waz664/vip9000-embeddinggemma}"
-VERSION="${VERSION:-v0.1.0}"
+VERSION="${VERSION:-v0.1.1}"
 ASSET="${ASSET:-vip9000-embeddinggemma-a7s-seq128-fp32-${VERSION}.tar.zst}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/embeddinggemma_npu_seq128_bias_hidden_fp32}"
 WORK_DIR="${WORK_DIR:-/tmp/vip9000-embeddinggemma-install}"
