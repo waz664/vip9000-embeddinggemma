@@ -49,6 +49,32 @@ The following files are intentionally not included:
 
 Those files are large and/or governed by upstream licenses. This repo contains the code, export scripts, metadata, and reproducibility notes.
 
+## Install With Prebuilt Runtime
+
+Once the release asset is uploaded, users do not need to convert the model themselves:
+
+```bash
+git clone https://github.com/waz664/vip9000-embeddinggemma.git
+cd vip9000-embeddinggemma
+./install/setup_radxa_dependencies.sh
+./install/install_runtime.sh
+./install/smoke_test.sh
+```
+
+The installer downloads:
+
+```text
+vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst
+```
+
+from the GitHub release and installs the runtime files under:
+
+```text
+~/embeddinggemma_npu_seq128_bias_hidden_fp32
+```
+
+See `docs/prebuilt_runtime.md` for bundle creation and release upload instructions.
+
 ## Runtime Layout
 
 On the Radxa board, place the runtime files in one directory:
