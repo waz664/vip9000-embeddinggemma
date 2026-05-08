@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cubie A7S RAG</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #101114; color: #f3f5f7; }
+    .shell { display: grid; grid-template-columns: 320px 1fr; min-height: 100vh; }
+    aside { background: #15171c; border-right: 1px solid #303440; padding: 24px; }
+    main { display: grid; grid-template-rows: auto 1fr auto; }
+    header, form { padding: 18px 28px; border-bottom: 1px solid #303440; }
+    form { border-top: 1px solid #303440; border-bottom: 0; display: grid; grid-template-columns: 1fr auto; gap: 12px; }
+    input { background: #20232b; color: #f3f5f7; border: 1px solid #303440; border-radius: 8px; padding: 14px; font-size: 15px; }
+    button { background: #ee4b4b; color: white; border: 0; border-radius: 8px; padding: 0 20px; font-weight: 700; }
+    .chat { padding: 24px 28px; overflow: auto; }
+    .muted { color: #a9b0bb; }
+    .answer { white-space: pre-wrap; line-height: 1.55; max-width: 960px; }
+    .source { margin-top: 12px; border: 1px solid #303440; background: #181a20; border-radius: 8px; padding: 14px; }
+    .source a { color: #f6b14a; text-decoration: none; }
+    .score { color: #58d68d; }
+    @media (max-width: 800px) { .shell { grid-template-columns: 1fr; } form { grid-template-columns: 1fr; } button { height: 46px; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <h1>Radxa Cubie A7S RAG</h1>
+      <p class="muted">EmbeddingGemma retrieval on VIP9000 NPU, Qwen3 0.6B answer generation through Ollama.</p>
+      <p class="muted">Knowledgebase: Radxa Cubie A7S product and docs chunks.</p>
+    </aside>
+    <main>
+      <header>
+        <h2>Ask the local knowledgebase</h2>
+        <div class="muted" id="timing">Ready</div>
+      </header>
+      <section class="chat" id="chat"><div class="muted">Try: does Cubie A7S support NVMe storage?</div></section>
+      <form id="form">
+        <input id="query" autocomplete="off" value="does Cubie A7S support NVMe storage?">
+        <button id="send" type="submit">Ask</button>
+      </form>
+    </main>
+  </div>
+  <script>
+    const form = document.getElementById('form');
+    const query = document.getElementById('query');
+    const send = document.getElementById('send');
+    const chat = document.getElementById('chat');
+    const timing = document.getElementById('timing');
+    const esc = s => String(s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    function sourceHtml(hit) {
+      const text = hit.text.length > 520 ? hit.text.slice(0, 517) + '...' : hit.text;
+      return `<div class="source"><div><b>${hit.rank}</b> <span class="score">cos ${hit.cosine.toFixed(4)}</span> p ${hit.probability.toFixed(3)} <a href="${hit.url}" target="_blank">${hit.url}</a></div><p>${esc(text)}</p></div>`;
+    }
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const value = query.value.trim();
+      if (!value) return;
+      send.disabled = true;
+      timing.textContent = 'Embedding query on NPU...';
+      chat.innerHTML = '<div class="muted">Working...</div>';
+      try {
+        const res = await fetch('/api/chat', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({query: value})});
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'request failed');
+        timing.textContent = `embedding ${data.timing.embedding_s.toFixed(1)}s · qwen ${data.timing.llm_s.toFixed(1)}s · total ${data.timing.total_s.toFixed(1)}s`;
+        chat.innerHTML = `<div class="answer">${esc(data.answer)}</div>${data.hits.map(sourceHtml).join('')}`;
+      } catch (err) {
+        timing.textContent = 'Error';
+        chat.innerHTML = `<div class="muted">${esc(err.message || err)}</div>`;
+      } finally {
+        send.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
