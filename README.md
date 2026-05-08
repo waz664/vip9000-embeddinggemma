@@ -120,6 +120,19 @@ The latest summary from this board is included at:
 artifacts/quality_eval_summary.json
 ```
 
+## Ollama RAG WebUI
+
+An optional end-to-end demo is included in `webui/`. It uses the corrected NPU embedding path for retrieval and `qwen3:0.6b` through Ollama for answer generation.
+
+```bash
+cd /home/radxa/rag_webui
+./app.py
+```
+
+Open `http://<radxa-ip>:8080`.
+
+See `docs/webui.md` for notes and measured timing.
+
 ## Export Flow
 
 The successful path was:

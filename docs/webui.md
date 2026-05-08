@@ -1,0 +1,50 @@
+# Ollama RAG WebUI
+
+The optional demo app is in:
+
+```text
+webui/app.py
+webui/static/index.html
+```
+
+On the Radxa board, the live copy is:
+
+```text
+/home/radxa/rag_webui
+```
+
+It uses:
+
+- NPU EmbeddingGemma retrieval from `/home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32`
+- the directory-backed vector index in `rag_demo/index`
+- Ollama model `qwen3:0.6b`
+- Python standard-library HTTP server, no Flask/FastAPI dependency
+
+Start it:
+
+```bash
+cd /home/radxa/rag_webui
+./app.py
+```
+
+Open:
+
+```text
+http://<radxa-ip>:8080
+```
+
+The app intentionally sends only the top 2 retrieved snippets to Qwen3. Larger prompts worked mechanically but were too slow on this board through Ollama. A representative NVMe query completed in about:
+
+```text
+embedding_s=19.2
+llm_s=93.3
+total_s=112.4
+```
+
+The answer produced:
+
+```text
+Yes, the Cubie A7S supports NVMe storage. [1]
+```
+
+This is a complete local RAG path, but the Qwen3 generation latency is high. For a more usable interactive demo, try `gemma3:270m` or reduce retrieved context further. For a quality-oriented demo, keep `qwen3:0.6b` and accept the wait.
