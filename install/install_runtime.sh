@@ -46,6 +46,7 @@ cp embed_text_bias_hidden_npu.py benchmark_bias_vs_cpu.py "$INSTALL_DIR/"
 mkdir -p "$INSTALL_DIR/rag_demo"
 cp rag_demo/*.py "$INSTALL_DIR/rag_demo/"
 cp -r webui "$INSTALL_DIR/"
+chmod +x "$INSTALL_DIR"/embed_text_bias_hidden_npu.py "$INSTALL_DIR"/benchmark_bias_vs_cpu.py "$INSTALL_DIR"/rag_demo/*.py "$INSTALL_DIR"/webui/app.py
 
 echo "installed runtime to $INSTALL_DIR"
 echo

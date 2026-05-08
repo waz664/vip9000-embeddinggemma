@@ -30,9 +30,9 @@ After the bundle is uploaded to a GitHub release:
 ```bash
 git clone https://github.com/waz664/vip9000-embeddinggemma.git
 cd vip9000-embeddinggemma
-./install/setup_radxa_dependencies.sh
-./install/install_runtime.sh
-./install/smoke_test.sh
+bash install/setup_radxa_dependencies.sh
+bash install/install_runtime.sh
+bash install/smoke_test.sh
 ```
 
 By default, `install_runtime.sh` downloads from:
@@ -45,7 +45,7 @@ To install from a local asset file:
 
 ```bash
 LOCAL_ASSET=/path/to/vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst \
-  ./install/install_runtime.sh
+  bash install/install_runtime.sh
 ```
 
 ## Create The Bundle
@@ -54,7 +54,7 @@ On a board that already has the working runtime directory:
 
 ```bash
 cd /home/radxa/vip9000-embeddinggemma
-./scripts/pack_model_assets.sh
+bash scripts/pack_model_assets.sh
 ```
 
 This writes:
@@ -91,7 +91,7 @@ Then rerun the release command.
 ```bash
 cd ~/embeddinggemma_npu_seq128_bias_hidden_fp32
 ./rag_demo/build_index.py --max-chunks 8
-~/vip9000-embeddinggemma/install/run_webui.sh
+bash ~/vip9000-embeddinggemma/install/run_webui.sh
 ```
 
 Open:

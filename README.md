@@ -56,9 +56,9 @@ Once the release asset is uploaded, users do not need to convert the model thems
 ```bash
 git clone https://github.com/waz664/vip9000-embeddinggemma.git
 cd vip9000-embeddinggemma
-./install/setup_radxa_dependencies.sh
-./install/install_runtime.sh
-./install/smoke_test.sh
+bash install/setup_radxa_dependencies.sh
+bash install/install_runtime.sh
+bash install/smoke_test.sh
 ```
 
 The installer downloads:

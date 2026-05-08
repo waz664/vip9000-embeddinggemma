@@ -21,4 +21,4 @@ for file in "${required[@]}"; do
 done
 
 cd "$INSTALL_DIR"
-./embed_text_bias_hidden_npu.py "$QUERY"
+python3 ./embed_text_bias_hidden_npu.py "$QUERY"
