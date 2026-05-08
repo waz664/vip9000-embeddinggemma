@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import json
 import math
+import os
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -11,13 +13,12 @@ from urllib.parse import urlparse
 import numpy as np
 
 
-MODEL_DIR = Path("/home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32")
+MODEL_DIR = Path(os.environ.get("VIP9000_RAG_MODEL_DIR", "/home/radxa/embeddinggemma_npu_seq128_bias_hidden_fp32"))
 RAG_DIR = MODEL_DIR / "rag_demo" / "index"
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 OLLAMA_MODEL = "qwen3:0.6b"
 TOP_K = 2
-
-import sys
+PORT = int(os.environ.get("VIP9000_RAG_PORT", "8080"))
 
 sys.path.insert(0, str(MODEL_DIR))
 from embed_text_bias_hidden_npu import embed_text  # noqa: E402
@@ -67,10 +68,7 @@ def ollama_answer(query: str, hits: list[dict]) -> tuple[str, float]:
         "Be concise. If the context is insufficient, say what is missing. "
         "Cite sources with bracket numbers like [1]."
     )
-    prompt = (
-        f"Retrieved context:\n{context}\n\n"
-        f"Question: {query}"
-    )
+    prompt = f"Retrieved context:\n{context}\n\nQuestion: {query}"
     payload = {
         "model": OLLAMA_MODEL,
         "messages": [
@@ -163,8 +161,8 @@ def main() -> int:
         raise RuntimeError(f"missing index under {RAG_DIR}")
     if not math.isfinite(float(np.load(RAG_DIR / "embeddings.npy")[0, 0])):
         raise RuntimeError("index embeddings are invalid")
-    server = ThreadingHTTPServer(("0.0.0.0", 8080), Handler)
-    print("RAG WebUI listening on http://0.0.0.0:8080", flush=True)
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
+    print(f"RAG WebUI listening on http://0.0.0.0:{PORT}", flush=True)
     server.serve_forever()
     return 0
 
