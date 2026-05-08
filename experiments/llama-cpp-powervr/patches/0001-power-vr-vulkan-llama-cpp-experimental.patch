@@ -1,0 +1,183 @@
+From d4722260bda6ed26241408282aaea75450027307 Mon Sep 17 00:00:00 2001
+From: Radxa GPU Experiment <radxa-gpu-experiment@users.noreply.github.com>
+Date: Fri, 8 May 2026 21:43:14 +0000
+Subject: [PATCH 1/2] vulkan: tolerate small shared memory devices
+
+---
+ ggml/src/ggml-vulkan/ggml-vulkan.cpp | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/ggml/src/ggml-vulkan/ggml-vulkan.cpp b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+index 0a7931002..a14dec597 100644
+--- a/ggml/src/ggml-vulkan/ggml-vulkan.cpp
++++ b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+@@ -3422,10 +3422,13 @@ static void ggml_vk_load_shaders(vk_device& device) {
+             ggml_type t = (ggml_type)i;
+             // Disable medium and large matrix multiplication if not enough shared memory is available
+             // Check mmq warptiles as the largest configuration
+-            // Throw an error if not enough for any matrix multiplication is available
++            // Some embedded GPUs expose very small compute shared memory. Keep
++            // the Vulkan backend usable for non-matmul ops instead of aborting
++            // device initialization; unsupported matmul types stay on CPU.
+             if (!ggml_vk_matmul_shmem_support(device, s_warptile_mmq, false, t)) {
+-                std::cerr << "ggml_vulkan: Error: Shared memory size too small for matrix multiplication." << std::endl;
+-                throw std::runtime_error("Shared memory size too small for matrix multiplication.");
++                device->mul_mat_s[i] = false;
++                device->mul_mat_m[i] = false;
++                device->mul_mat_l[i] = false;
+             } else if (!ggml_vk_matmul_shmem_support(device, m_warptile_mmq, false, t)) {
+                 device->mul_mat_m[i] = false;
+                 device->mul_mat_l[i] = false;
+-- 
+2.30.2
+
+
+From 9a7e308a29789c86871f3adf4388ebd073c6b00e Mon Sep 17 00:00:00 2001
+From: Radxa GPU Experiment <radxa-gpu-experiment@users.noreply.github.com>
+Date: Fri, 8 May 2026 22:18:31 +0000
+Subject: [PATCH 2/2] vulkan: add experimental PowerVR scalar matvec
+
+---
+ ggml/src/ggml-vulkan/ggml-vulkan.cpp          |  6 +-
+ .../mul_mat_vec_f32_scalar.comp               | 97 +++++++++++++++++++
+ .../vulkan-shaders/vulkan-shaders-gen.cpp     |  3 +-
+ 3 files changed, 104 insertions(+), 2 deletions(-)
+ create mode 100644 ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_f32_scalar.comp
+
+diff --git a/ggml/src/ggml-vulkan/ggml-vulkan.cpp b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+index a14dec597..c43e58c2e 100644
+--- a/ggml/src/ggml-vulkan/ggml-vulkan.cpp
++++ b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+@@ -4202,7 +4202,11 @@ static void ggml_vk_load_shaders(vk_device& device) {
+     }
+     uint32_t rm_iq = 2 * rm_kq;
+ 
+-    const bool use_subgroups = device->subgroup_arithmetic && device->architecture != vk_device_architecture::AMD_GCN;
++    // PowerVR BXM-4-64 reports subgroup arithmetic support with subgroup size 1.
++    // llama.cpp's matvec reduction shaders expect a real lane group; forcing
++    // subgroup reductions on a 1-wide subgroup makes pipeline creation fail on
++    // this driver. Fall back to shared-memory reductions for these devices.
++    const bool use_subgroups = device->subgroup_arithmetic && device->subgroup_size > 1 && device->architecture != vk_device_architecture::AMD_GCN;
+     // Ensure a subgroup size >= 16 is available
+     const bool use_subgroups16 = use_subgroups && subgroup_min_size_16;
+ 
+diff --git a/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_f32_scalar.comp b/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_f32_scalar.comp
+new file mode 100644
+index 000000000..abf824881
+--- /dev/null
++++ b/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_f32_scalar.comp
+@@ -0,0 +1,97 @@
++#version 450
++
++layout(local_size_x_id = 0, local_size_y = 1, local_size_z = 1) in;
++
++layout(constant_id = 0) const uint BLOCK_SIZE = 1;
++layout(constant_id = 1) const uint NUM_ROWS = 1;
++layout(constant_id = 2) const uint NUM_COLS = 1;
++
++#define MAT_VEC_FUSION_FLAGS_BIAS0 0x1
++#define MAT_VEC_FUSION_FLAGS_BIAS1 0x2
++
++layout(push_constant) uniform parameter {
++    uint ncols;
++    uint stride_a;
++    uint stride_b;
++    uint stride_d;
++
++    uint batch_stride_a;
++    uint batch_stride_b;
++    uint batch_stride_d;
++
++    uint fusion_flags;
++
++    uint base_work_group_y;
++    uint ne02;
++    uint ne12;
++    uint broadcast2;
++    uint broadcast3;
++} p;
++
++layout(binding = 0) readonly buffer A {
++    float data_a[];
++};
++
++layout(binding = 1) readonly buffer B {
++    float data_b[];
++};
++
++layout(binding = 2) writeonly buffer D {
++    float data_d[];
++};
++
++layout(binding = 3) readonly buffer Fuse0 {
++    float data_fuse0[];
++};
++
++layout(binding = 4) readonly buffer Fuse1 {
++    float data_fuse1[];
++};
++
++uint batch_a_index(uint batch_idx) {
++    if (batch_idx == 0) {
++        return 0;
++    }
++
++    const uint i13 = batch_idx / p.ne12;
++    const uint i12 = batch_idx % p.ne12;
++
++    const uint i03 = i13 / p.broadcast3;
++    const uint i02 = i12 / p.broadcast2;
++
++    return i03 * p.ne02 + i02;
++}
++
++void main() {
++    const uint first_row = NUM_ROWS * (gl_WorkGroupID.x + gl_NumWorkGroups.x * gl_WorkGroupID.z);
++    const uint batch_idx = gl_WorkGroupID.y + p.base_work_group_y;
++    const uint batch_idx_a = batch_a_index(batch_idx);
++
++    const uint a_offset = batch_idx_a * p.batch_stride_a;
++    const uint b_offset = batch_idx * p.batch_stride_b;
++    const uint d_offset = batch_idx * p.batch_stride_d;
++
++    for (uint j = 0; j < NUM_COLS; ++j) {
++        for (uint n = 0; n < NUM_ROWS; ++n) {
++            const uint row = first_row + n;
++            if (row >= p.stride_d) {
++                continue;
++            }
++
++            float sum = 0.0;
++            for (uint col = 0; col < p.ncols; ++col) {
++                sum += data_a[a_offset + row * p.ncols + col] *
++                       data_b[j * p.batch_stride_b + b_offset + col];
++            }
++
++            if ((p.fusion_flags & MAT_VEC_FUSION_FLAGS_BIAS0) != 0) {
++                sum += data_fuse0[j * p.batch_stride_d + d_offset + row];
++            }
++            if ((p.fusion_flags & MAT_VEC_FUSION_FLAGS_BIAS1) != 0) {
++                sum += data_fuse1[j * p.batch_stride_d + d_offset + row];
++            }
++
++            data_d[j * p.batch_stride_d + d_offset + row] = sum;
++        }
++    }
++}
+diff --git a/ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp b/ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
+index 6f2a929c4..ba1268168 100644
+--- a/ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
++++ b/ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
+@@ -687,7 +687,8 @@ void process_shaders() {
+     for (const auto& tname : type_names) {
+         // mul mat vec
+         std::string data_a_key = "DATA_A_" + to_uppercase(tname);
+-        std::string shader = (string_ends_with(tname, "_k") || string_starts_with(tname, "iq1_") || string_starts_with(tname, "iq2_") || string_starts_with(tname, "iq3_")) ? "mul_mat_vec_" + tname + ".comp" : "mul_mat_vec.comp";
++        std::string shader = tname == "f32" ? "mul_mat_vec_f32_scalar.comp" :
++            (string_ends_with(tname, "_k") || string_starts_with(tname, "iq1_") || string_starts_with(tname, "iq2_") || string_starts_with(tname, "iq3_")) ? "mul_mat_vec_" + tname + ".comp" : "mul_mat_vec.comp";
+ 
+         string_to_spv("mul_mat_vec_" + tname + "_f32_f32", shader, merge_maps(base_dict, {{data_a_key, "1"}, {"B_TYPE", "float"}, {"B_TYPEV2", "vec2"}, {"B_TYPEV4", "vec4"}, {"D_TYPE", "float"}}));
+         string_to_spv("mul_mat_vec_" + tname + "_f16_f32", shader, merge_maps(base_dict, {{data_a_key, "1"}, {"B_TYPE", "float16_t"}, {"B_TYPEV2", "f16vec2"}, {"B_TYPEV4", "f16vec4"}, {"D_TYPE", "float"}}));
+-- 
+2.30.2
+
