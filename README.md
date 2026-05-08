@@ -39,7 +39,7 @@ The retrieval result is promising: top-5 overlap is high, and several top-1 disa
 
 ## What Is Not Committed
 
-The following files are intentionally not included:
+The following files are intentionally not included in normal git history:
 
 - `network_binary.nb` - generated VIPLite NBG, about 404 MB
 - `token_embedding_fp16.dat` - EmbeddingGemma token embedding table, about 384 MB
@@ -47,7 +47,33 @@ The following files are intentionally not included:
 - Google model weights and TFLite model files
 - Vivante/Radxa SDK files and Docker images
 
-Those files are large and/or governed by upstream licenses. This repo contains the code, export scripts, metadata, and reproducibility notes.
+Those files are large and/or governed by upstream licenses. Use the prebuilt runtime release asset for no-conversion installation.
+
+## Install With Prebuilt Runtime
+
+Once the release asset is uploaded, users do not need to convert the model themselves:
+
+```bash
+git clone https://github.com/waz664/vip9000-embeddinggemma.git
+cd vip9000-embeddinggemma
+./install/setup_radxa_dependencies.sh
+./install/install_runtime.sh
+./install/smoke_test.sh
+```
+
+The installer downloads:
+
+```text
+vip9000-embeddinggemma-a7s-seq128-fp32-v0.1.0.tar.zst
+```
+
+from the GitHub release and installs the runtime files under:
+
+```text
+~/embeddinggemma_npu_seq128_bias_hidden_fp32
+```
+
+See `docs/prebuilt_runtime.md` for bundle creation and release upload instructions.
 
 ## Runtime Layout
 
