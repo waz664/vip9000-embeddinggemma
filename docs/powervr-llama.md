@@ -7,6 +7,7 @@ Patches:
 ```bash
 patches/llama.cpp/0001-vulkan-enable-powervr-scalar-f16-matvec-offload.patch
 patches/llama.cpp/0002-vulkan-fix-powervr-scalar-f16-matvec-dispatch.patch
+patches/llama.cpp/0003-vulkan-submit-powervr-scalar-f16-matvec-dispatches.patch
 ```
 
 Tested local result:
@@ -33,8 +34,7 @@ Current limits:
 - only small token-batch F16 matvec is enabled on PowerVR
 - prompt batches should stay small, for example `-b 8 -ub 8`
 - KV cache and flash attention are kept off for this path
-- generated text is currently corrupted compared with the CPU path, so this is a GPU execution milestone, not a quality milestone
-- strict backend correctness for the first Qwen F16 token matvec is not passing yet
+- generated text should be retested after `0003`; prior runs before this correctness fix were corrupted
 
 Live server command used for the WebUI:
 
@@ -70,7 +70,7 @@ MUL_MAT(name=Vcur-0,type=f32,ne=[1024,1,1,1],sources=f16[1024,1024,1,1],f32[1024
 
 Before `0002`, ggml launched the scalar F16 shader with the old subgroup workgroup denominator. On PowerVR BXM the shader uses one invocation per output row, so most rows were not written and `test-backend-ops` reported `ERR = inf`.
 
-After `0002`, the same op produces finite, close values, but still fails the strict backend tolerance:
+After `0002`, the same op produced finite, close values, but still failed the strict backend tolerance:
 
 ```text
 [MUL_MAT] ERR = 0.952921962 > 0.000500000
@@ -78,3 +78,31 @@ sample diffs: 0.026741, -0.020079, -0.006459, 0.003721
 ```
 
 The standalone direct Vulkan repro continues to validate the same F16 matvec shape with low absolute error, so the next work item is to close the remaining ggml integration gap rather than changing the model or prompt.
+
+After `0003`, the PowerVR scalar F16 path uses separate descriptor writes and submits/restarts the compute command buffer around each scalar F16 dispatch. This is deliberately conservative, but it removes the moving unwritten-row failures seen in ggml's longer command stream.
+
+Validated on the Cubie A7S with `test-backend-ops`:
+
+```bash
+taskset -c 6,7 env GGML_VK_VISIBLE_DEVICES=0 \
+  ./build-vulkan/bin/test-backend-ops test \
+  -b Vulkan0 \
+  --test-file /tmp/qwen_f16_ops/mulmat_1024x1024_tok1.txt
+```
+
+Result:
+
+```text
+MUL_MAT Vcur-0 f16[1024,1024] x f32[1024,1]: OK
+```
+
+Additional Qwen token projection shapes also pass:
+
+```text
+node_32    f16[2048,1024] x f32[2048,1]: OK
+ffn_out-0  f16[3072,1024] x f32[3072,1]: OK
+Qcur-0     f16[1024,2048] x f32[1024,1]: OK
+ffn_gate-0 f16[1024,3072] x f32[1024,1]: OK
+```
+
+Next steps are to retest full llama generation quality, then expand coverage to batch-8 prompt matvecs and the output projection.

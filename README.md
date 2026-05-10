@@ -172,7 +172,7 @@ See `docs/webui.md` for notes and measured timing.
 
 ## Experimental PowerVR llama.cpp Patch
 
-`patches/llama.cpp/` contains experimental llama.cpp Vulkan patches for the Cubie A7S PowerVR BXM GPU. The current milestone loads real Qwen3 0.6B F16 layer weights into the Vulkan model buffer and completes a small-batch generation path with `-ngl 2`; the latest patch fixes an under-dispatch bug in the scalar F16 matvec path, reducing the isolated Qwen op from `ERR = inf` to finite close outputs.
+`patches/llama.cpp/` contains experimental llama.cpp Vulkan patches for the Cubie A7S PowerVR BXM GPU. The current milestone loads real Qwen3 0.6B F16 layer weights into the Vulkan model buffer and completes a small-batch generation path with `-ngl 2`; the latest patches make several isolated Qwen F16 token matvec ops pass `test-backend-ops` on Vulkan0.
 
 See `docs/powervr-llama.md` for the exact command and current limitations.
 

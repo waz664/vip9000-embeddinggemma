@@ -1,0 +1,85 @@
+From 1656bd29579100b99329af8c78b418d31654dc66 Mon Sep 17 00:00:00 2001
+From: Radxa GPU Experiment <radxa-gpu-experiment@users.noreply.github.com>
+Date: Sun, 10 May 2026 23:20:42 +0000
+Subject: [PATCH] vulkan: submit PowerVR scalar f16 matvec dispatches
+
+---
+ ggml/src/ggml-vulkan/ggml-vulkan.cpp | 48 +++++++++++++++++++++++++++-
+ 1 file changed, 47 insertions(+), 1 deletion(-)
+
+diff --git a/ggml/src/ggml-vulkan/ggml-vulkan.cpp b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+index 19c21a643..2115279e7 100644
+--- a/ggml/src/ggml-vulkan/ggml-vulkan.cpp
++++ b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+@@ -6706,6 +6706,40 @@ static void ggml_vk_dispatch_pipeline(ggml_backend_vk_context* ctx, vk_context&
+     subctx->s->buffer->buf.dispatch(wg0, wg1, wg2);
+ }
+ 
++template <typename T>
++static void ggml_vk_dispatch_pipeline_separate_writes(ggml_backend_vk_context* ctx, vk_context& subctx, vk_pipeline& pipeline, std::initializer_list<vk::DescriptorBufferInfo> const& descriptor_buffer_infos, const T &push_constants, std::array<uint32_t, 3> elements) {
++    const uint32_t wg0 = CEIL_DIV(elements[0], pipeline->wg_denoms[0]);
++    const uint32_t wg1 = CEIL_DIV(elements[1], pipeline->wg_denoms[1]);
++    const uint32_t wg2 = CEIL_DIV(elements[2], pipeline->wg_denoms[2]);
++    GGML_ASSERT(wg0 <= ctx->device->properties.limits.maxComputeWorkGroupCount[0] &&
++                wg1 <= ctx->device->properties.limits.maxComputeWorkGroupCount[1] &&
++                wg2 <= ctx->device->properties.limits.maxComputeWorkGroupCount[2]);
++    GGML_ASSERT(ctx->descriptor_set_idx < ctx->descriptor_sets.size());
++    GGML_ASSERT(descriptor_buffer_infos.size() <= MAX_PARAMETER_COUNT);
++    GGML_ASSERT(pipeline->parameter_count == descriptor_buffer_infos.size());
++    GGML_ASSERT(pipeline->push_constant_size == push_constant_size(push_constants));
++
++    vk::DescriptorSet& descriptor_set = ctx->descriptor_sets[ctx->descriptor_set_idx++];
++    std::vector<vk::DescriptorBufferInfo> infos(descriptor_buffer_infos.begin(), descriptor_buffer_infos.end());
++    std::vector<vk::WriteDescriptorSet> writes;
++    writes.reserve(infos.size());
++    for (uint32_t i = 0; i < infos.size(); ++i) {
++        writes.push_back(vk::WriteDescriptorSet{
++            descriptor_set, i, 0, 1, vk::DescriptorType::eStorageBuffer, nullptr, &infos[i]
++        });
++    }
++    ctx->device->device.updateDescriptorSets(writes, {});
++
++    subctx->s->buffer->buf.pushConstants(pipeline->layout, vk::ShaderStageFlagBits::eCompute, 0, push_constant_size(push_constants), push_constant_data(push_constants));
++    subctx->s->buffer->buf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline->pipeline);
++    subctx->s->buffer->buf.bindDescriptorSets(vk::PipelineBindPoint::eCompute,
++                                pipeline->layout,
++                                0,
++                                { descriptor_set },
++                                {});
++    subctx->s->buffer->buf.dispatch(wg0, wg1, wg2);
++}
++
+ static void ggml_vk_end_submission(vk_submission& s, std::vector<vk_semaphore> wait_semaphores, std::vector<vk_semaphore> signal_semaphores) {
+     s.buffer->buf.end();
+ 
+@@ -6733,6 +6767,13 @@ static void ggml_vk_ctx_begin(vk_device& device, vk_context& subctx) {
+     subctx->s = subctx->seqs[subctx->seqs.size() - 1].data();
+ }
+ 
++static void ggml_vk_submit_and_restart_ctx(ggml_backend_vk_context * ctx, vk_context& subctx) {
++    ggml_vk_ctx_end(subctx);
++    ggml_vk_submit(subctx, ctx->fence);
++    ggml_vk_wait_for_fence(ctx);
++    ggml_vk_ctx_begin(ctx->device, subctx);
++}
++
+ static vk_context ggml_vk_get_compute_ctx(ggml_backend_vk_context * ctx) {
+     vk_context result;
+     if (!ctx->compute_ctx.expired()) {
+@@ -8156,7 +8197,12 @@ static void ggml_vk_mul_mat_vec_q_f16(ggml_backend_vk_context * ctx, vk_context&
+                 fusion_flags, base_work_group_y,
+                 (uint32_t)ne02, (uint32_t)ne12, (uint32_t)r2, (uint32_t)r3,
+             };
+-            ggml_vk_dispatch_pipeline(ctx, subctx, dmmv, { d_X, d_Y, d_D, d_F0, d_F1 }, pc, { slice_groups_x, groups_y, slice_groups_z });
++            if (powervr_scalar_f16) {
++                ggml_vk_dispatch_pipeline_separate_writes(ctx, subctx, dmmv, { d_X, d_Y, d_D, d_F0, d_F1 }, pc, { slice_groups_x, groups_y, slice_groups_z });
++                ggml_vk_submit_and_restart_ctx(ctx, subctx);
++            } else {
++                ggml_vk_dispatch_pipeline(ctx, subctx, dmmv, { d_X, d_Y, d_D, d_F0, d_F1 }, pc, { slice_groups_x, groups_y, slice_groups_z });
++            }
+             base_work_group_y += groups_y;
+         }
+     }
+-- 
+2.30.2
+
