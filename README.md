@@ -170,6 +170,12 @@ Open `http://<radxa-ip>:8080`.
 
 See `docs/webui.md` for notes and measured timing.
 
+## Experimental PowerVR llama.cpp Patch
+
+`patches/llama.cpp/` contains an experimental llama.cpp Vulkan patch for the Cubie A7S PowerVR BXM GPU. The current milestone loads real Qwen3 0.6B F16 layer weights into the Vulkan model buffer and completes a small-batch generation path with `-ngl 2`.
+
+See `docs/powervr-llama.md` for the exact command and current limitations.
+
 ## Export Flow
 
 The successful path was:
