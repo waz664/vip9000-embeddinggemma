@@ -19,4 +19,4 @@ fi
 "$GLSLC" "$SHADER" -o "$SPV"
 g++ -O2 -std=c++17 "$ROOT/vulkan_matvec_repro.cpp" -I"$VK_INC" "$VK_LIB" -ldl -lpthread -o "$ROOT/vulkan_matvec_repro"
 
-"$ROOT/vulkan_matvec_repro" "${1:-1024}" "${2:-1024}" "$SPV" "$MODE"
+"$ROOT/vulkan_matvec_repro" "${1:-1024}" "${2:-1024}" "$SPV" "$MODE" "${4:-}" "${5:-}"

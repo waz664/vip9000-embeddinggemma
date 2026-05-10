@@ -30,6 +30,16 @@ static std::vector<uint32_t> read_spv(const char * path) {
     return data;
 }
 
+static void read_binary_exact(const char * path, void * dst, size_t size) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) {
+        throw std::runtime_error(std::string("failed to open binary input: ") + path);
+    }
+    if (!f.read(reinterpret_cast<char *>(dst), size)) {
+        throw std::runtime_error(std::string("failed to read binary input: ") + path);
+    }
+}
+
 struct Buffer {
     VkBuffer buffer = VK_NULL_HANDLE;
     VkDeviceMemory memory = VK_NULL_HANDLE;
@@ -134,6 +144,8 @@ int main(int argc, char ** argv) {
         const uint32_t cols = argc > 2 ? std::strtoul(argv[2], nullptr, 10) : 1024;
         const char * spv_path = argc > 3 ? argv[3] : "matvec_scalar.spv";
         const std::string mode = argc > 4 ? argv[4] : "f32";
+        const char * a_path = argc > 5 ? argv[5] : nullptr;
+        const char * b_path = argc > 6 ? argv[6] : nullptr;
         const bool a_is_f16 = mode == "f16a";
 
         VkApplicationInfo app { VK_STRUCTURE_TYPE_APPLICATION_INFO };
@@ -209,20 +221,28 @@ int main(int argc, char ** argv) {
         uint16_t * pa_f16 = reinterpret_cast<uint16_t *>(base + a_offset);
         float * pb = reinterpret_cast<float *>(base + b_offset);
         float * pd = reinterpret_cast<float *>(base + d_offset);
-        for (uint32_t r = 0; r < rows; ++r) {
-            for (uint32_t c = 0; c < cols; ++c) {
-                const int v = int((r * 17 + c * 13) % 2001) - 1000;
-                const float a_value = float(v) / 1000.0f;
-                if (a_is_f16) {
-                    pa_f16[uint64_t(r) * cols + c] = fp32_to_fp16(a_value);
-                } else {
-                    pa_f32[uint64_t(r) * cols + c] = a_value;
+        if (a_path) {
+            read_binary_exact(a_path, base + a_offset, size_t(a_size));
+        } else {
+            for (uint32_t r = 0; r < rows; ++r) {
+                for (uint32_t c = 0; c < cols; ++c) {
+                    const int v = int((r * 17 + c * 13) % 2001) - 1000;
+                    const float a_value = float(v) / 1000.0f;
+                    if (a_is_f16) {
+                        pa_f16[uint64_t(r) * cols + c] = fp32_to_fp16(a_value);
+                    } else {
+                        pa_f32[uint64_t(r) * cols + c] = a_value;
+                    }
                 }
             }
         }
-        for (uint32_t c = 0; c < cols; ++c) {
-            const int v = int((c * 19) % 2001) - 1000;
-            pb[c] = float(v) / 1000.0f;
+        if (b_path) {
+            read_binary_exact(b_path, pb, size_t(b_size));
+        } else {
+            for (uint32_t c = 0; c < cols; ++c) {
+                const int v = int((c * 19) % 2001) - 1000;
+                pb[c] = float(v) / 1000.0f;
+            }
         }
         for (uint32_t r = 0; r < rows; ++r) {
             pd[r] = 0.0f;
