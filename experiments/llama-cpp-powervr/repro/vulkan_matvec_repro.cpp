@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 #include <stdexcept>
 #include <vector>
 
@@ -198,21 +199,26 @@ int main(int argc, char ** argv) {
         VkPipeline pipeline;
         vk_check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &cpci, nullptr, &pipeline), "vkCreateComputePipelines");
 
+        const uint32_t chunk_rows = 256;
+        const uint32_t chunk_count = (rows + chunk_rows - 1) / chunk_rows;
+
         VkDescriptorPoolSize pool_size {};
         pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        pool_size.descriptorCount = 5;
+        pool_size.descriptorCount = 5 * chunk_count;
         VkDescriptorPoolCreateInfo dpci { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-        dpci.maxSets = 1;
+        dpci.maxSets = chunk_count;
         dpci.poolSizeCount = 1;
         dpci.pPoolSizes = &pool_size;
         VkDescriptorPool pool;
         vk_check(vkCreateDescriptorPool(device, &dpci, nullptr, &pool), "vkCreateDescriptorPool");
+
+        std::vector<VkDescriptorSetLayout> layouts(chunk_count, dsl);
+        std::vector<VkDescriptorSet> sets(chunk_count);
         VkDescriptorSetAllocateInfo dsai { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
         dsai.descriptorPool = pool;
-        dsai.descriptorSetCount = 1;
-        dsai.pSetLayouts = &dsl;
-        VkDescriptorSet set;
-        vk_check(vkAllocateDescriptorSets(device, &dsai, &set), "vkAllocateDescriptorSets");
+        dsai.descriptorSetCount = chunk_count;
+        dsai.pSetLayouts = layouts.data();
+        vk_check(vkAllocateDescriptorSets(device, &dsai, sets.data()), "vkAllocateDescriptorSets");
 
         VkDescriptorBufferInfo infos[5] {
             { a.buffer, 0, a.size },
@@ -221,16 +227,18 @@ int main(int argc, char ** argv) {
             { fuse0.buffer, 0, fuse0.size },
             { fuse1.buffer, 0, fuse1.size },
         };
-        VkWriteDescriptorSet writes[5] {};
-        for (uint32_t i = 0; i < 5; ++i) {
-            writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            writes[i].dstSet = set;
-            writes[i].dstBinding = i;
-            writes[i].descriptorCount = 1;
-            writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            writes[i].pBufferInfo = &infos[i];
+        for (uint32_t set_idx = 0; set_idx < chunk_count; ++set_idx) {
+            VkWriteDescriptorSet writes[5] {};
+            for (uint32_t i = 0; i < 5; ++i) {
+                writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                writes[i].dstSet = sets[set_idx];
+                writes[i].dstBinding = i;
+                writes[i].descriptorCount = 1;
+                writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                writes[i].pBufferInfo = &infos[i];
+            }
+            vkUpdateDescriptorSets(device, 5, writes, 0, nullptr);
         }
-        vkUpdateDescriptorSets(device, 5, writes, 0, nullptr);
 
         VkCommandPoolCreateInfo cpci2 { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
         cpci2.queueFamilyIndex = queue_family;
@@ -245,14 +253,15 @@ int main(int argc, char ** argv) {
         VkCommandBufferBeginInfo cbi { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         vk_check(vkBeginCommandBuffer(cmd, &cbi), "vkBeginCommandBuffer");
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &set, 0, nullptr);
-        for (uint32_t row0 = 0; row0 < rows; row0 += 256) {
-            const uint32_t chunk = std::min<uint32_t>(256, rows - row0);
+        for (uint32_t set_idx = 0; set_idx < chunk_count; ++set_idx) {
+            const uint32_t row0 = set_idx * chunk_rows;
+            const uint32_t chunk = std::min<uint32_t>(chunk_rows, rows - row0);
             uint32_t pc[13] {
                 cols, row0, cols, rows,
                 rows * cols, cols, rows,
                 0, 0, 1, 1, 1, 1,
             };
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &sets[set_idx], 0, nullptr);
             vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pc), pc);
             vkCmdDispatch(cmd, chunk, 1, 1);
         }

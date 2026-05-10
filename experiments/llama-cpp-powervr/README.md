@@ -20,6 +20,7 @@ Patches exported here:
 experiments/llama-cpp-powervr/patches/0001-power-vr-vulkan-llama-cpp-experimental.patch
 experiments/llama-cpp-powervr/patches/0003-power-vr-vulkan-guard-unstable-matvec.patch
 experiments/llama-cpp-powervr/patches/0004-vulkan-extend-powervr-scalar-matvec-coverage.patch
+experiments/llama-cpp-powervr/patches/0005-vulkan-disable-async-on-powervr-bxm.patch
 ```
 
 The Vulkan backend builds and detects the GPU:
@@ -46,6 +47,8 @@ Implemented so far:
 - Add an experimental scalar `F32 x F32 -> F32` matvec shader that avoids
   subgroup reductions, shared-memory reductions, and 8/16-bit storage feature
   requirements.
+- Disable ggml Vulkan async internally on PowerVR B-Series because the async
+  path can return corrupt values on this driver.
 
 Test results:
 
@@ -54,9 +57,9 @@ Test results:
 - A converted F32 test model with the scalar shader successfully loads,
   initializes, warms up, and generates with `-ngl 2` without pipeline creation
   failure.
-- The scalar F32 path now passes exported Qwen-shaped op tests through 256
+- The scalar F32 path now passes exported Qwen-shaped op tests through 128
   output rows. Wider rows are guarded back to CPU because llama.cpp/ggml
-  dispatches still corrupt data at 512+ rows.
+  dispatches still corrupt data at 256+ rows.
 - The standalone Vulkan repro in `repro/` passes chunked 1024-row matvecs, so
   the remaining wide-row failure appears to be in the ggml integration path,
   not a fundamental PowerVR hardware limit.
@@ -88,11 +91,11 @@ Boundary op tests:
 cd /home/radxa/llama.cpp
 timeout 60s env GGML_VK_VISIBLE_DEVICES=0 \
   build-vulkan/bin/test-backend-ops test -b Vulkan0 \
-  --test-file /tmp/vcur_m256.txt
+  --test-file /tmp/vcur_m128.txt
 
 timeout 60s env GGML_VK_VISIBLE_DEVICES=0 \
   build-vulkan/bin/test-backend-ops test -b Vulkan0 \
-  --test-file /tmp/vcur_m512.txt
+  --test-file /tmp/vcur_m256.txt
 ```
 
 Standalone driver repro:

@@ -1,0 +1,55 @@
+From 5a663705ec7106a0607c1f5bd30adcca0362c4a4 Mon Sep 17 00:00:00 2001
+From: Radxa GPU Experiment <radxa-gpu-experiment@users.noreply.github.com>
+Date: Sun, 10 May 2026 06:51:37 +0000
+Subject: [PATCH] vulkan: disable async on PowerVR BXM
+
+---
+ ggml/src/ggml-vulkan/ggml-vulkan.cpp | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/ggml/src/ggml-vulkan/ggml-vulkan.cpp b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+index e34b723b1..4bc618875 100644
+--- a/ggml/src/ggml-vulkan/ggml-vulkan.cpp
++++ b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+@@ -5105,12 +5105,15 @@ static vk_device ggml_vk_get_device(size_t idx) {
+ 
+         // Implementing the async backend interfaces seems broken on older Intel HW,
+         // see https://github.com/ggml-org/llama.cpp/issues/17302.
++        const std::string device_name = device->properties.deviceName.data();
++        const bool powervr_bxm = device_name.find("PowerVR B-Series") != std::string::npos;
+         device->support_async = (device->vendor_id != VK_VENDOR_ID_INTEL ||
+-                                 std::string(device->properties.deviceName.data()).find("(DG1)") == std::string::npos) &&
++                                 device_name.find("(DG1)") == std::string::npos) &&
++                                !powervr_bxm &&
+                                 getenv("GGML_VK_DISABLE_ASYNC") == nullptr;
+ 
+         if (!device->support_async) {
+-            GGML_LOG_DEBUG("ggml_vulkan: WARNING: Async execution disabled on certain Intel devices.\n");
++            GGML_LOG_DEBUG("ggml_vulkan: WARNING: Async execution disabled on this Vulkan device.\n");
+         }
+ 
+         const char* GGML_VK_FORCE_MAX_ALLOCATION_SIZE = getenv("GGML_VK_FORCE_MAX_ALLOCATION_SIZE");
+@@ -8118,7 +8121,7 @@ static void ggml_vk_mul_mat_vec_q_f16(ggml_backend_vk_context * ctx, vk_context&
+     const bool powervr_scalar_f32 =
+         ctx->device->subgroup_size <= 1 && src0->type == GGML_TYPE_F32 && src1->type == GGML_TYPE_F32 &&
+         ne02 == 1 && ne03 == 1;
+-    const uint32_t row_chunk = powervr_scalar_f32 ? 256u : (uint32_t)ne01;
++    const uint32_t row_chunk = powervr_scalar_f32 ? 128u : (uint32_t)ne01;
+     const uint32_t row_slices = CEIL_DIV((uint32_t)ne01, row_chunk);
+ 
+     ggml_pipeline_request_descriptor_sets(ctx, dmmv, row_slices * CEIL_DIV(ne12 * ne13, ctx->device->properties.limits.maxComputeWorkGroupCount[1]));
+@@ -15584,9 +15587,9 @@ static bool ggml_backend_vk_device_supports_op(ggml_backend_dev_t dev, const ggm
+                 }
+                 if (device->subgroup_size <= 1 && op->op == GGML_OP_MUL_MAT &&
+                     src0_type == GGML_TYPE_F32 && op->src[1]->type == GGML_TYPE_F32 &&
+-                    op->src[0]->ne[1] > 256) {
++                    op->src[0]->ne[1] > 128) {
+                     // PowerVR BXM now passes the scalar F32 matvec path through
+-                    // 256 output rows. Wider ggml dispatches still corrupt data
++                    // 128 output rows. Wider ggml dispatches still corrupt data
+                     // even though a standalone Vulkan repro passes, so leave
+                     // the large Qwen projections on CPU for now.
+                     return false;
+-- 
+2.30.2
+

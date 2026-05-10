@@ -40,6 +40,20 @@ layout(binding = 4) readonly buffer Fuse1 {
     float fuse1[];
 };
 
+uint batch_a_index(uint batch_idx) {
+    if (batch_idx == 0) {
+        return 0;
+    }
+
+    const uint i13 = batch_idx / p.ne12;
+    const uint i12 = batch_idx % p.ne12;
+
+    const uint i03 = i13 / p.broadcast3;
+    const uint i02 = i12 / p.broadcast2;
+
+    return i03 * p.ne02 + i02;
+}
+
 void main() {
     uint row = p.stride_a + gl_WorkGroupID.x + gl_NumWorkGroups.x * gl_WorkGroupID.z;
     if (row >= p.stride_d) {
@@ -47,7 +61,9 @@ void main() {
     }
 
     const uint batch_idx = gl_WorkGroupID.y + p.base_work_group_y;
-    const uint a_offset = batch_idx * p.batch_stride_a;
+    const uint batch_idx_a = batch_a_index(batch_idx);
+
+    const uint a_offset = batch_idx_a * p.batch_stride_a;
     const uint b_offset = batch_idx * p.batch_stride_b;
     const uint d_offset = batch_idx * p.batch_stride_d;
 
