@@ -32,6 +32,28 @@ Current limits:
 - only small token-batch F16 matvec is enabled on PowerVR
 - prompt batches should stay small, for example `-b 8 -ub 8`
 - KV cache and flash attention are kept off for this path
-- generated text still needs correctness work before this is a recommended chat backend
+- generated text is currently corrupted compared with the CPU path, so this is a GPU execution milestone, not a quality milestone
+
+Live server command used for the WebUI:
+
+```bash
+env GGML_VK_VISIBLE_DEVICES=0 ~/llama.cpp/build-vulkan/bin/llama-server \
+  -m ~/llama.cpp/Qwen3-0.6B-F16-from-Q8.gguf \
+  --host 0.0.0.0 --port 8081 \
+  -c 512 -b 8 -ub 8 -ngl 2 \
+  --no-kv-offload -fa off --reasoning off \
+  --alias qwen3-0.6b-powervr \
+  -np 1 --no-cache-idle-slots
+```
+
+Observed WebUI request timing for a Radxa NVMe question:
+
+```text
+embedding_s=19.0
+llm_s=67.0
+total_s=86.1
+provider=llama_cpp
+model=qwen3-0.6b-powervr
+```
 
 The patch works by adding a scalar F16-weight/F32-vector matvec shader matching the standalone Vulkan repro and avoiding the subgroup/RTE SPIR-V mutations that the PowerVR driver rejects for this pipeline.

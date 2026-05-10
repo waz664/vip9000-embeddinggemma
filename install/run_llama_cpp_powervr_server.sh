@@ -20,4 +20,6 @@ exec env GGML_VK_VISIBLE_DEVICES="${GGML_VK_VISIBLE_DEVICES:-0}" \
   --no-kv-offload \
   -fa off \
   --reasoning off \
+  -np "${PARALLEL_SLOTS:-1}" \
+  --no-cache-idle-slots \
   --alias "${MODEL_ALIAS:-qwen3-0.6b-powervr}"
