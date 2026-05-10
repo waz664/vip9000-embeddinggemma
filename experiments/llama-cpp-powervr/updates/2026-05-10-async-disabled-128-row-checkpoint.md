@@ -69,7 +69,9 @@ The standalone repro now matches more of the ggml shape:
 - chunked row dispatch,
 - one descriptor set per chunk,
 - the same `batch_a_index()` helper shape.
+- nonzero descriptor offsets into one arena buffer,
+- device-local arena execution with staging upload and readback copies.
 
 It still passes `512x1024` and `1024x1024`, so the next likely suspects are
-ggml tensor buffer suballocation, transfer/upload synchronization, or queue
-submission sequencing outside the simple repro.
+ggml graph/backend scheduling, tensor initialization, or queue submission
+sequencing outside the simple repro.

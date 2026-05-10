@@ -47,12 +47,14 @@ static uint32_t find_memory_type(VkPhysicalDevice physical, uint32_t bits, VkMem
     throw std::runtime_error("no suitable memory type");
 }
 
-static Buffer make_buffer(VkPhysicalDevice physical, VkDevice device, VkDeviceSize size) {
+static Buffer make_buffer(VkPhysicalDevice physical, VkDevice device, VkDeviceSize size,
+                          VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                          VkMemoryPropertyFlags memory_flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) {
     Buffer out;
     out.size = size;
     VkBufferCreateInfo bi { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     bi.size = size;
-    bi.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    bi.usage = usage;
     bi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     vk_check(vkCreateBuffer(device, &bi, nullptr, &out.buffer), "vkCreateBuffer");
 
@@ -60,11 +62,12 @@ static Buffer make_buffer(VkPhysicalDevice physical, VkDevice device, VkDeviceSi
     vkGetBufferMemoryRequirements(device, out.buffer, &req);
     VkMemoryAllocateInfo ai { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
     ai.allocationSize = req.size;
-    ai.memoryTypeIndex = find_memory_type(physical, req.memoryTypeBits,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    ai.memoryTypeIndex = find_memory_type(physical, req.memoryTypeBits, memory_flags);
     vk_check(vkAllocateMemory(device, &ai, nullptr, &out.memory), "vkAllocateMemory");
     vk_check(vkBindBufferMemory(device, out.buffer, out.memory, 0), "vkBindBufferMemory");
-    vk_check(vkMapMemory(device, out.memory, 0, size, 0, &out.mapped), "vkMapMemory");
+    if (memory_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+        vk_check(vkMapMemory(device, out.memory, 0, size, 0, &out.mapped), "vkMapMemory");
+    }
     return out;
 }
 
@@ -119,15 +122,33 @@ int main(int argc, char ** argv) {
         VkQueue queue;
         vkGetDeviceQueue(device, queue_family, 0, &queue);
 
-        Buffer a = make_buffer(physical, device, VkDeviceSize(rows) * cols * sizeof(float));
-        Buffer b = make_buffer(physical, device, VkDeviceSize(cols) * sizeof(float));
-        Buffer d = make_buffer(physical, device, VkDeviceSize(rows) * sizeof(float));
-        Buffer fuse0 = make_buffer(physical, device, sizeof(float));
-        Buffer fuse1 = make_buffer(physical, device, sizeof(float));
+        const VkDeviceSize align = 256;
+        auto align_up = [align](VkDeviceSize v) {
+            return ((v + align - 1) / align) * align;
+        };
+        const VkDeviceSize a_offset = align;
+        const VkDeviceSize a_size = VkDeviceSize(rows) * cols * sizeof(float);
+        const VkDeviceSize b_offset = align_up(a_offset + a_size);
+        const VkDeviceSize b_size = VkDeviceSize(cols) * sizeof(float);
+        const VkDeviceSize d_offset = align_up(b_offset + b_size);
+        const VkDeviceSize d_size = VkDeviceSize(rows) * sizeof(float);
+        const VkDeviceSize fuse0_offset = align_up(d_offset + d_size);
+        const VkDeviceSize fuse1_offset = align_up(fuse0_offset + sizeof(float));
+        const VkDeviceSize arena_size = align_up(fuse1_offset + sizeof(float));
+        Buffer staging = make_buffer(physical, device, arena_size,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        Buffer arena = make_buffer(physical, device, arena_size,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        Buffer readback = make_buffer(physical, device, d_size,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-        float * pa = static_cast<float *>(a.mapped);
-        float * pb = static_cast<float *>(b.mapped);
-        float * pd = static_cast<float *>(d.mapped);
+        auto * base = static_cast<uint8_t *>(staging.mapped);
+        float * pa = reinterpret_cast<float *>(base + a_offset);
+        float * pb = reinterpret_cast<float *>(base + b_offset);
+        float * pd = reinterpret_cast<float *>(base + d_offset);
         for (uint32_t r = 0; r < rows; ++r) {
             for (uint32_t c = 0; c < cols; ++c) {
                 const int v = int((r * 17 + c * 13) % 97) - 48;
@@ -141,8 +162,8 @@ int main(int argc, char ** argv) {
         for (uint32_t r = 0; r < rows; ++r) {
             pd[r] = 0.0f;
         }
-        *static_cast<float *>(fuse0.mapped) = 0.0f;
-        *static_cast<float *>(fuse1.mapped) = 0.0f;
+        *reinterpret_cast<float *>(base + fuse0_offset) = 0.0f;
+        *reinterpret_cast<float *>(base + fuse1_offset) = 0.0f;
 
         VkDescriptorSetLayoutBinding bindings[5] {};
         for (uint32_t i = 0; i < 5; ++i) {
@@ -221,11 +242,11 @@ int main(int argc, char ** argv) {
         vk_check(vkAllocateDescriptorSets(device, &dsai, sets.data()), "vkAllocateDescriptorSets");
 
         VkDescriptorBufferInfo infos[5] {
-            { a.buffer, 0, a.size },
-            { b.buffer, 0, b.size },
-            { d.buffer, 0, d.size },
-            { fuse0.buffer, 0, fuse0.size },
-            { fuse1.buffer, 0, fuse1.size },
+            { arena.buffer, a_offset, a_size },
+            { arena.buffer, b_offset, b_size },
+            { arena.buffer, d_offset, d_size },
+            { arena.buffer, fuse0_offset, sizeof(float) },
+            { arena.buffer, fuse1_offset, sizeof(float) },
         };
         for (uint32_t set_idx = 0; set_idx < chunk_count; ++set_idx) {
             VkWriteDescriptorSet writes[5] {};
@@ -252,6 +273,18 @@ int main(int argc, char ** argv) {
         vk_check(vkAllocateCommandBuffers(device, &cbai, &cmd), "vkAllocateCommandBuffers");
         VkCommandBufferBeginInfo cbi { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         vk_check(vkBeginCommandBuffer(cmd, &cbi), "vkBeginCommandBuffer");
+        VkBufferCopy upload_region {};
+        upload_region.srcOffset = 0;
+        upload_region.dstOffset = 0;
+        upload_region.size = arena_size;
+        vkCmdCopyBuffer(cmd, staging.buffer, arena.buffer, 1, &upload_region);
+
+        VkMemoryBarrier upload_barrier { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+        upload_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        upload_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                             0, 1, &upload_barrier, 0, nullptr, 0, nullptr);
+
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
         for (uint32_t set_idx = 0; set_idx < chunk_count; ++set_idx) {
             const uint32_t row0 = set_idx * chunk_rows;
@@ -265,6 +298,19 @@ int main(int argc, char ** argv) {
             vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pc), pc);
             vkCmdDispatch(cmd, chunk, 1, 1);
         }
+
+        VkMemoryBarrier shader_barrier { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+        shader_barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        shader_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0, 1, &shader_barrier, 0, nullptr, 0, nullptr);
+
+        VkBufferCopy read_region {};
+        read_region.srcOffset = d_offset;
+        read_region.dstOffset = 0;
+        read_region.size = d_size;
+        vkCmdCopyBuffer(cmd, arena.buffer, readback.buffer, 1, &read_region);
+
         vk_check(vkEndCommandBuffer(cmd), "vkEndCommandBuffer");
         VkSubmitInfo submit { VK_STRUCTURE_TYPE_SUBMIT_INFO };
         submit.commandBufferCount = 1;
@@ -279,7 +325,8 @@ int main(int argc, char ** argv) {
             for (uint32_t c = 0; c < cols; ++c) {
                 expect += double(pa[uint64_t(r) * cols + c]) * double(pb[c]);
             }
-            const double err = std::fabs(double(pd[r]) - expect);
+            const float got = static_cast<float *>(readback.mapped)[r];
+            const double err = std::fabs(double(got) - expect);
             if (err > max_err) {
                 max_err = err;
                 max_row = r;
