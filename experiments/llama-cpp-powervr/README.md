@@ -21,6 +21,7 @@ experiments/llama-cpp-powervr/patches/0001-power-vr-vulkan-llama-cpp-experimenta
 experiments/llama-cpp-powervr/patches/0003-power-vr-vulkan-guard-unstable-matvec.patch
 experiments/llama-cpp-powervr/patches/0004-vulkan-extend-powervr-scalar-matvec-coverage.patch
 experiments/llama-cpp-powervr/patches/0005-vulkan-disable-async-on-powervr-bxm.patch
+experiments/llama-cpp-powervr/patches/0006-vulkan-add-powervr-wide-matvec-test-override.patch
 ```
 
 The Vulkan backend builds and detects the GPU:
@@ -63,6 +64,8 @@ Test results:
 - The standalone Vulkan repro in `repro/` passes chunked 1024-row matvecs, so
   the remaining wide-row failure appears to be in the ggml integration path,
   not a fundamental PowerVR hardware limit.
+- `GGML_VK_POWERVR_FORCE_WIDE_MATVEC=1` can force the unsafe wide path for
+  debugging. It is not stable enough for normal use.
 
 ## Rebuild Notes
 

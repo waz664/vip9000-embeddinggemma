@@ -1,0 +1,26 @@
+From d7ee6a85a526b8ec5df2ad4336f2eaa0d5cb3317 Mon Sep 17 00:00:00 2001
+From: Radxa GPU Experiment <radxa-gpu-experiment@users.noreply.github.com>
+Date: Sun, 10 May 2026 07:03:18 +0000
+Subject: [PATCH] vulkan: add PowerVR wide matvec test override
+
+---
+ ggml/src/ggml-vulkan/ggml-vulkan.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/ggml/src/ggml-vulkan/ggml-vulkan.cpp b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+index 4bc618875..c3469cae5 100644
+--- a/ggml/src/ggml-vulkan/ggml-vulkan.cpp
++++ b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+@@ -15587,7 +15587,8 @@ static bool ggml_backend_vk_device_supports_op(ggml_backend_dev_t dev, const ggm
+                 }
+                 if (device->subgroup_size <= 1 && op->op == GGML_OP_MUL_MAT &&
+                     src0_type == GGML_TYPE_F32 && op->src[1]->type == GGML_TYPE_F32 &&
+-                    op->src[0]->ne[1] > 128) {
++                    op->src[0]->ne[1] > 128 &&
++                    getenv("GGML_VK_POWERVR_FORCE_WIDE_MATVEC") == nullptr) {
+                     // PowerVR BXM now passes the scalar F32 matvec path through
+                     // 128 output rows. Wider ggml dispatches still corrupt data
+                     // even though a standalone Vulkan repro passes, so leave
+-- 
+2.30.2
+
