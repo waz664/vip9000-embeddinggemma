@@ -5,7 +5,7 @@ PowerVR BXM-4-64 GPU. It is separate from the VIP9000 embedding runtime.
 
 ## Current Status
 
-Date: 2026-05-08
+Date: 2026-05-10
 
 Branch in local llama.cpp checkout:
 
@@ -14,10 +14,12 @@ cd /home/radxa/llama.cpp
 git switch radxa-powervr-vulkan
 ```
 
-Patch exported here:
+Patches exported here:
 
 ```text
 experiments/llama-cpp-powervr/patches/0001-power-vr-vulkan-llama-cpp-experimental.patch
+experiments/llama-cpp-powervr/patches/0003-power-vr-vulkan-guard-unstable-matvec.patch
+experiments/llama-cpp-powervr/patches/0004-vulkan-extend-powervr-scalar-matvec-coverage.patch
 ```
 
 The Vulkan backend builds and detects the GPU:
@@ -52,9 +54,12 @@ Test results:
 - A converted F32 test model with the scalar shader successfully loads,
   initializes, warms up, and generates with `-ngl 2` without pipeline creation
   failure.
-- The scalar F32 path is not correct yet: a fixed greedy test diverges from
-  CPU output when a repeating layer is offloaded. Treat it as a driver execution
-  milestone, not a usable LLM backend.
+- The scalar F32 path now passes exported Qwen-shaped op tests through 256
+  output rows. Wider rows are guarded back to CPU because llama.cpp/ggml
+  dispatches still corrupt data at 512+ rows.
+- The standalone Vulkan repro in `repro/` passes chunked 1024-row matvecs, so
+  the remaining wide-row failure appears to be in the ggml integration path,
+  not a fundamental PowerVR hardware limit.
 
 ## Rebuild Notes
 
@@ -76,6 +81,26 @@ variants. Until that is cleaned up, the build tree uses
 experiment.
 
 ## Repro Commands
+
+Boundary op tests:
+
+```bash
+cd /home/radxa/llama.cpp
+timeout 60s env GGML_VK_VISIBLE_DEVICES=0 \
+  build-vulkan/bin/test-backend-ops test -b Vulkan0 \
+  --test-file /tmp/vcur_m256.txt
+
+timeout 60s env GGML_VK_VISIBLE_DEVICES=0 \
+  build-vulkan/bin/test-backend-ops test -b Vulkan0 \
+  --test-file /tmp/vcur_m512.txt
+```
+
+Standalone driver repro:
+
+```bash
+cd /home/radxa/vip9000-embeddinggemma
+experiments/llama-cpp-powervr/repro/run_matvec_repro.sh 1024 1024
+```
 
 Create test models from the local Q8 GGUF:
 
@@ -118,8 +143,9 @@ env GGML_VK_VISIBLE_DEVICES=0 build-vulkan/bin/llama-completion \
 
 ## Next Work
 
-1. Add targeted debug around the F32 scalar matvec inputs and strides.
-2. Fix F32 scalar correctness against CPU for a one-layer offload.
+1. Isolate why the standalone Vulkan repro passes 1024-row chunked matvec while
+   ggml's Vulkan dispatch corrupts 512+ row F32 matvec.
+2. Fix wide F32 scalar correctness against CPU for a one-layer offload.
 3. Once F32 is correct, port the same scalar strategy to Q8_0 or Q4_0 so the
    model size is practical.
 4. After correctness, measure whether any scalar GPU path is faster or merely

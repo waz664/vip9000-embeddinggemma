@@ -2,9 +2,22 @@
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
+layout(constant_id = 2) const uint NUM_COLS = 1;
+
 layout(push_constant) uniform Params {
     uint ncols;
-    uint nrows;
+    uint stride_a;
+    uint stride_b;
+    uint stride_d;
+    uint batch_stride_a;
+    uint batch_stride_b;
+    uint batch_stride_d;
+    uint fusion_flags;
+    uint base_work_group_y;
+    uint ne02;
+    uint ne12;
+    uint broadcast2;
+    uint broadcast3;
 } p;
 
 layout(binding = 0) readonly buffer A {
@@ -19,15 +32,31 @@ layout(binding = 2) writeonly buffer D {
     float d[];
 };
 
+layout(binding = 3) readonly buffer Fuse0 {
+    float fuse0[];
+};
+
+layout(binding = 4) readonly buffer Fuse1 {
+    float fuse1[];
+};
+
 void main() {
-    uint row = gl_GlobalInvocationID.x;
-    if (row >= p.nrows) {
+    uint row = p.stride_a + gl_WorkGroupID.x + gl_NumWorkGroups.x * gl_WorkGroupID.z;
+    if (row >= p.stride_d) {
         return;
     }
 
-    float sum = 0.0;
-    for (uint col = 0; col < p.ncols; ++col) {
-        sum += a[row * p.ncols + col] * b[col];
+    const uint batch_idx = gl_WorkGroupID.y + p.base_work_group_y;
+    const uint a_offset = batch_idx * p.batch_stride_a;
+    const uint b_offset = batch_idx * p.batch_stride_b;
+    const uint d_offset = batch_idx * p.batch_stride_d;
+
+    for (uint j = 0; j < NUM_COLS; ++j) {
+        float sum = 0.0;
+        for (uint col = 0; col < p.ncols; ++col) {
+            sum += a[a_offset + row * p.ncols + col] *
+                   b[j * p.batch_stride_b + b_offset + col];
+        }
+        d[j * p.batch_stride_d + d_offset + row] = sum;
     }
-    d[row] = sum;
 }

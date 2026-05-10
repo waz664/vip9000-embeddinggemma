@@ -121,6 +121,8 @@ int main(int argc, char ** argv) {
         Buffer a = make_buffer(physical, device, VkDeviceSize(rows) * cols * sizeof(float));
         Buffer b = make_buffer(physical, device, VkDeviceSize(cols) * sizeof(float));
         Buffer d = make_buffer(physical, device, VkDeviceSize(rows) * sizeof(float));
+        Buffer fuse0 = make_buffer(physical, device, sizeof(float));
+        Buffer fuse1 = make_buffer(physical, device, sizeof(float));
 
         float * pa = static_cast<float *>(a.mapped);
         float * pb = static_cast<float *>(b.mapped);
@@ -138,16 +140,18 @@ int main(int argc, char ** argv) {
         for (uint32_t r = 0; r < rows; ++r) {
             pd[r] = 0.0f;
         }
+        *static_cast<float *>(fuse0.mapped) = 0.0f;
+        *static_cast<float *>(fuse1.mapped) = 0.0f;
 
-        VkDescriptorSetLayoutBinding bindings[3] {};
-        for (uint32_t i = 0; i < 3; ++i) {
+        VkDescriptorSetLayoutBinding bindings[5] {};
+        for (uint32_t i = 0; i < 5; ++i) {
             bindings[i].binding = i;
             bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             bindings[i].descriptorCount = 1;
             bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
         }
         VkDescriptorSetLayoutCreateInfo dlci { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-        dlci.bindingCount = 3;
+        dlci.bindingCount = 5;
         dlci.pBindings = bindings;
         VkDescriptorSetLayout dsl;
         vk_check(vkCreateDescriptorSetLayout(device, &dlci, nullptr, &dsl), "vkCreateDescriptorSetLayout");
@@ -155,7 +159,7 @@ int main(int argc, char ** argv) {
         VkPushConstantRange pcr {};
         pcr.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
         pcr.offset = 0;
-        pcr.size = 2 * sizeof(uint32_t);
+        pcr.size = 13 * sizeof(uint32_t);
         VkPipelineLayoutCreateInfo plci { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
         plci.setLayoutCount = 1;
         plci.pSetLayouts = &dsl;
@@ -175,6 +179,19 @@ int main(int argc, char ** argv) {
         stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
         stage.module = shader;
         stage.pName = "main";
+        uint32_t spec_data[3] { 1, 1, 1 };
+        VkSpecializationMapEntry spec_entries[3] {};
+        for (uint32_t i = 0; i < 3; ++i) {
+            spec_entries[i].constantID = i;
+            spec_entries[i].offset = i * sizeof(uint32_t);
+            spec_entries[i].size = sizeof(uint32_t);
+        }
+        VkSpecializationInfo spec_info {};
+        spec_info.mapEntryCount = 3;
+        spec_info.pMapEntries = spec_entries;
+        spec_info.dataSize = sizeof(spec_data);
+        spec_info.pData = spec_data;
+        stage.pSpecializationInfo = &spec_info;
         VkComputePipelineCreateInfo cpci { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
         cpci.stage = stage;
         cpci.layout = layout;
@@ -183,7 +200,7 @@ int main(int argc, char ** argv) {
 
         VkDescriptorPoolSize pool_size {};
         pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        pool_size.descriptorCount = 3;
+        pool_size.descriptorCount = 5;
         VkDescriptorPoolCreateInfo dpci { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
         dpci.maxSets = 1;
         dpci.poolSizeCount = 1;
@@ -197,13 +214,15 @@ int main(int argc, char ** argv) {
         VkDescriptorSet set;
         vk_check(vkAllocateDescriptorSets(device, &dsai, &set), "vkAllocateDescriptorSets");
 
-        VkDescriptorBufferInfo infos[3] {
+        VkDescriptorBufferInfo infos[5] {
             { a.buffer, 0, a.size },
             { b.buffer, 0, b.size },
             { d.buffer, 0, d.size },
+            { fuse0.buffer, 0, fuse0.size },
+            { fuse1.buffer, 0, fuse1.size },
         };
-        VkWriteDescriptorSet writes[3] {};
-        for (uint32_t i = 0; i < 3; ++i) {
+        VkWriteDescriptorSet writes[5] {};
+        for (uint32_t i = 0; i < 5; ++i) {
             writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writes[i].dstSet = set;
             writes[i].dstBinding = i;
@@ -211,7 +230,7 @@ int main(int argc, char ** argv) {
             writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             writes[i].pBufferInfo = &infos[i];
         }
-        vkUpdateDescriptorSets(device, 3, writes, 0, nullptr);
+        vkUpdateDescriptorSets(device, 5, writes, 0, nullptr);
 
         VkCommandPoolCreateInfo cpci2 { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
         cpci2.queueFamilyIndex = queue_family;
@@ -227,9 +246,16 @@ int main(int argc, char ** argv) {
         vk_check(vkBeginCommandBuffer(cmd, &cbi), "vkBeginCommandBuffer");
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &set, 0, nullptr);
-        uint32_t pc[2] { cols, rows };
-        vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pc), pc);
-        vkCmdDispatch(cmd, rows, 1, 1);
+        for (uint32_t row0 = 0; row0 < rows; row0 += 256) {
+            const uint32_t chunk = std::min<uint32_t>(256, rows - row0);
+            uint32_t pc[13] {
+                cols, row0, cols, rows,
+                rows * cols, cols, rows,
+                0, 0, 1, 1, 1, 1,
+            };
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pc), pc);
+            vkCmdDispatch(cmd, chunk, 1, 1);
+        }
         vk_check(vkEndCommandBuffer(cmd), "vkEndCommandBuffer");
         VkSubmitInfo submit { VK_STRUCTURE_TYPE_SUBMIT_INFO };
         submit.commandBufferCount = 1;

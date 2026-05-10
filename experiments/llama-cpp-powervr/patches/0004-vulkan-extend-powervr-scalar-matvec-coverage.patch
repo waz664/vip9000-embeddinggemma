@@ -1,0 +1,173 @@
+From b8dee287b22207b37bc11bdfb5d5a822a18fcae9 Mon Sep 17 00:00:00 2001
+From: Radxa GPU Experiment <radxa-gpu-experiment@users.noreply.github.com>
+Date: Sun, 10 May 2026 06:31:42 +0000
+Subject: [PATCH] vulkan: extend PowerVR scalar matvec coverage
+
+---
+ ggml/src/ggml-vulkan/ggml-vulkan.cpp          | 54 ++++---------------
+ .../mul_mat_vec_f32_scalar.comp               | 40 +++++++-------
+ 2 files changed, 27 insertions(+), 67 deletions(-)
+
+diff --git a/ggml/src/ggml-vulkan/ggml-vulkan.cpp b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+index ed86376a2..e34b723b1 100644
+--- a/ggml/src/ggml-vulkan/ggml-vulkan.cpp
++++ b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+@@ -8094,19 +8094,6 @@ static void ggml_vk_mul_mat_vec_q_f16(ggml_backend_vk_context * ctx, vk_context&
+     }
+ 
+     uint32_t max_groups_x = ctx->device->properties.limits.maxComputeWorkGroupCount[0];
+-    if (ctx->device->subgroup_size <= 1) {
+-        // PowerVR BXM accepts larger X group counts but produces invalid
+-        // results once this scalar matvec dispatch reaches 256 groups.
+-        max_groups_x = std::min(max_groups_x, 255u);
+-    }
+-
+-    uint32_t groups_x = ne01;
+-    uint32_t groups_z = 1;
+-
+-    if (ne01 > max_groups_x) {
+-        groups_z = CEIL_DIV(ne01, max_groups_x);
+-        groups_x = CEIL_DIV(groups_x, groups_z);
+-    }
+ 
+     uint32_t fusion_flags = 0;
+ 
+@@ -8130,8 +8117,8 @@ static void ggml_vk_mul_mat_vec_q_f16(ggml_backend_vk_context * ctx, vk_context&
+ 
+     const bool powervr_scalar_f32 =
+         ctx->device->subgroup_size <= 1 && src0->type == GGML_TYPE_F32 && src1->type == GGML_TYPE_F32 &&
+-        ne02 == 1 && ne03 == 1 && fusion_flags == 0;
+-    const uint32_t row_chunk = powervr_scalar_f32 ? 240u : (uint32_t)ne01;
++        ne02 == 1 && ne03 == 1;
++    const uint32_t row_chunk = powervr_scalar_f32 ? 256u : (uint32_t)ne01;
+     const uint32_t row_slices = CEIL_DIV((uint32_t)ne01, row_chunk);
+ 
+     ggml_pipeline_request_descriptor_sets(ctx, dmmv, row_slices * CEIL_DIV(ne12 * ne13, ctx->device->properties.limits.maxComputeWorkGroupCount[1]));
+@@ -8145,40 +8132,17 @@ static void ggml_vk_mul_mat_vec_q_f16(ggml_backend_vk_context * ctx, vk_context&
+             slice_groups_x = CEIL_DIV(slice_groups_x, slice_groups_z);
+         }
+ 
+-        vk_subbuffer d_X_slice = d_X;
+-        vk_subbuffer d_D_slice = d_D;
+-        if (powervr_scalar_f32) {
+-            const uint64_t x_row_offset = uint64_t(row0) * ne00 * ggml_type_size(src0->type);
+-            const uint64_t d_row_offset = uint64_t(row0) * ggml_type_size(dst->type);
+-            const uint64_t x_slice_size = uint64_t(rows) * ne00 * ggml_type_size(src0->type);
+-            const uint64_t d_slice_size = uint64_t(rows) * ggml_type_size(dst->type);
+-            d_X_slice.offset += x_row_offset;
+-            d_X_slice.size -= std::min(d_X_slice.size, x_row_offset);
+-            d_X_slice.size = std::min(d_X_slice.size, x_slice_size);
+-            d_D_slice.offset += d_row_offset;
+-            d_D_slice.size -= std::min(d_D_slice.size, d_row_offset);
+-            d_D_slice.size = std::min(d_D_slice.size, d_slice_size);
+-        }
+-
+         uint32_t base_work_group_y = 0;
+         while (base_work_group_y < ne12 * ne13) {
+ 
+             uint32_t groups_y = std::min((uint32_t)(ne12 * ne13) - base_work_group_y, ctx->device->properties.limits.maxComputeWorkGroupCount[1]);
+             const vk_mat_vec_push_constants pc = {
+-                (uint32_t)ne00, (uint32_t)ne10, (uint32_t)ne10, rows,
++                (uint32_t)ne00, row0, (uint32_t)ne10, (uint32_t)ne01,
+                 stride_batch_x, stride_batch_y, stride_batch_d,
+                 fusion_flags, base_work_group_y,
+                 (uint32_t)ne02, (uint32_t)ne12, (uint32_t)r2, (uint32_t)r3,
+             };
+-            ggml_vk_dispatch_pipeline(ctx, subctx, dmmv,
+-                                      {
+-                                        d_X_slice,
+-                                        d_Y,
+-                                        d_D_slice,
+-                                        d_F0,
+-                                        d_F1,
+-                                      },
+-                                      pc, { slice_groups_x, groups_y, slice_groups_z });
++            ggml_vk_dispatch_pipeline(ctx, subctx, dmmv, { d_X, d_Y, d_D, d_F0, d_F1 }, pc, { slice_groups_x, groups_y, slice_groups_z });
+             base_work_group_y += groups_y;
+         }
+     }
+@@ -15620,11 +15584,11 @@ static bool ggml_backend_vk_device_supports_op(ggml_backend_dev_t dev, const ggm
+                 }
+                 if (device->subgroup_size <= 1 && op->op == GGML_OP_MUL_MAT &&
+                     src0_type == GGML_TYPE_F32 && op->src[1]->type == GGML_TYPE_F32 &&
+-                    op->src[0]->ne[1] > 16) {
+-                    // The scalar F32 matvec path is only proven through 16 output
+-                    // rows but PowerVR currently returns invalid values for the
+-                    // larger Qwen projection matrices. Keep those on CPU until
+-                    // the scratch-buffer implementation is validated.
++                    op->src[0]->ne[1] > 256) {
++                    // PowerVR BXM now passes the scalar F32 matvec path through
++                    // 256 output rows. Wider ggml dispatches still corrupt data
++                    // even though a standalone Vulkan repro passes, so leave
++                    // the large Qwen projections on CPU for now.
+                     return false;
+                 }
+                 if (op->op == GGML_OP_MUL_MAT_ID) {
+diff --git a/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_f32_scalar.comp b/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_f32_scalar.comp
+index f5c0b3267..ffeab8ec9 100644
+--- a/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_f32_scalar.comp
++++ b/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_f32_scalar.comp
+@@ -7,7 +7,6 @@
+ 
+ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+ 
+-layout(constant_id = 1) const uint NUM_ROWS = 1;
+ layout(constant_id = 2) const uint NUM_COLS = 1;
+ 
+ #define MAT_VEC_FUSION_FLAGS_BIAS0 0x1
+@@ -67,7 +66,11 @@ uint batch_a_index(uint batch_idx) {
+ }
+ 
+ void main() {
+-    const uint first_row = NUM_ROWS * (gl_WorkGroupID.x + gl_NumWorkGroups.x * gl_WorkGroupID.z);
++    const uint row = p.stride_a + gl_WorkGroupID.x + gl_NumWorkGroups.x * gl_WorkGroupID.z;
++    if (row >= p.stride_d) {
++        return;
++    }
++
+     const uint batch_idx = gl_WorkGroupID.y + p.base_work_group_y;
+     const uint batch_idx_a = batch_a_index(batch_idx);
+ 
+@@ -76,26 +79,19 @@ void main() {
+     const uint d_offset = batch_idx * p.batch_stride_d;
+ 
+     for (uint j = 0; j < NUM_COLS; ++j) {
+-        for (uint n = 0; n < NUM_ROWS; ++n) {
+-            const uint row = first_row + n;
+-            if (row >= p.stride_d) {
+-                continue;
+-            }
+-
+-            float sum = 0.0;
+-            for (uint col = 0; col < p.ncols; ++col) {
+-                sum += data_a[a_offset + row * p.ncols + col] *
+-                       float(data_b[j * p.batch_stride_b + b_offset + col]);
+-            }
+-
+-            if ((p.fusion_flags & MAT_VEC_FUSION_FLAGS_BIAS0) != 0) {
+-                sum += data_fuse0[j * p.batch_stride_d + d_offset + row];
+-            }
+-            if ((p.fusion_flags & MAT_VEC_FUSION_FLAGS_BIAS1) != 0) {
+-                sum += data_fuse1[j * p.batch_stride_d + d_offset + row];
+-            }
+-
+-            data_d[j * p.batch_stride_d + d_offset + row] = D_TYPE(sum);
++        float sum = 0.0;
++        for (uint col = 0; col < p.ncols; ++col) {
++            sum += data_a[a_offset + row * p.ncols + col] *
++                   float(data_b[j * p.batch_stride_b + b_offset + col]);
++        }
++
++        if ((p.fusion_flags & MAT_VEC_FUSION_FLAGS_BIAS0) != 0) {
++            sum += data_fuse0[j * p.batch_stride_d + d_offset + row];
++        }
++        if ((p.fusion_flags & MAT_VEC_FUSION_FLAGS_BIAS1) != 0) {
++            sum += data_fuse1[j * p.batch_stride_d + d_offset + row];
+         }
++
++        data_d[j * p.batch_stride_d + d_offset + row] = D_TYPE(sum);
+     }
+ }
+-- 
+2.30.2
+
