@@ -21,6 +21,8 @@ Forced wide rows are not reliable:
 - Forced `m=1024` fails.
 - Adding a Vulkan memory barrier between PowerVR row chunks did not make forced
   `m=256` stable.
+- Binding unused fusion descriptors away from the output buffer also did not
+  make forced `m=256` stable.
 
 This confirms the default 128-row ceiling is the correct user-facing behavior
 for now.

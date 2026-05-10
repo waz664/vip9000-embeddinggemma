@@ -1,0 +1,81 @@
+#version 450
+
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#extension GL_EXT_shader_16bit_storage : require
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(constant_id = 2) const uint NUM_COLS = 1;
+
+layout(push_constant) uniform Params {
+    uint ncols;
+    uint stride_a;
+    uint stride_b;
+    uint stride_d;
+    uint batch_stride_a;
+    uint batch_stride_b;
+    uint batch_stride_d;
+    uint fusion_flags;
+    uint base_work_group_y;
+    uint ne02;
+    uint ne12;
+    uint broadcast2;
+    uint broadcast3;
+} p;
+
+layout(binding = 0) readonly buffer A {
+    float16_t a[];
+};
+
+layout(binding = 1) readonly buffer B {
+    float b[];
+};
+
+layout(binding = 2) writeonly buffer D {
+    float d[];
+};
+
+layout(binding = 3) readonly buffer Fuse0 {
+    float fuse0[];
+};
+
+layout(binding = 4) readonly buffer Fuse1 {
+    float fuse1[];
+};
+
+uint batch_a_index(uint batch_idx) {
+    if (batch_idx == 0) {
+        return 0;
+    }
+
+    const uint i13 = batch_idx / p.ne12;
+    const uint i12 = batch_idx % p.ne12;
+
+    const uint i03 = i13 / p.broadcast3;
+    const uint i02 = i12 / p.broadcast2;
+
+    return i03 * p.ne02 + i02;
+}
+
+void main() {
+    uint row = p.stride_a + gl_WorkGroupID.x + gl_NumWorkGroups.x * gl_WorkGroupID.z;
+    if (row >= p.stride_d) {
+        return;
+    }
+
+    const uint batch_idx = gl_WorkGroupID.y + p.base_work_group_y;
+    const uint batch_idx_a = batch_a_index(batch_idx);
+
+    const uint a_offset = batch_idx_a * p.batch_stride_a;
+    const uint b_offset = batch_idx * p.batch_stride_b;
+    const uint d_offset = batch_idx * p.batch_stride_d;
+
+    for (uint j = 0; j < NUM_COLS; ++j) {
+        float sum = 0.0;
+        for (uint col = 0; col < p.ncols; ++col) {
+            sum += float(a[a_offset + row * p.ncols + col]) *
+                   b[j * p.batch_stride_b + b_offset + col];
+        }
+        d[j * p.batch_stride_d + d_offset + row] = sum;
+    }
+}

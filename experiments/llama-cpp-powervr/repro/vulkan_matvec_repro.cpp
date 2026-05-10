@@ -7,6 +7,7 @@
 #include <iostream>
 #include <algorithm>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 static void vk_check(VkResult r, const char * what) {
@@ -35,6 +36,62 @@ struct Buffer {
     void * mapped = nullptr;
     VkDeviceSize size = 0;
 };
+
+static uint16_t fp32_to_fp16(float value) {
+    union {
+        float f;
+        uint32_t u;
+    } in { value };
+
+    const uint32_t sign = (in.u >> 16) & 0x8000u;
+    int32_t exp = int32_t((in.u >> 23) & 0xffu) - 127 + 15;
+    uint32_t mant = in.u & 0x7fffffu;
+
+    if (exp <= 0) {
+        if (exp < -10) {
+            return uint16_t(sign);
+        }
+        mant |= 0x800000u;
+        const uint32_t shifted = mant >> uint32_t(14 - exp);
+        return uint16_t(sign | ((shifted + 1u) >> 1));
+    }
+    if (exp >= 31) {
+        return uint16_t(sign | 0x7c00u);
+    }
+
+    return uint16_t(sign | (uint32_t(exp) << 10) | ((mant + 0x1000u) >> 13));
+}
+
+static float fp16_to_fp32(uint16_t value) {
+    const uint32_t sign = uint32_t(value & 0x8000u) << 16;
+    uint32_t exp = (value >> 10) & 0x1fu;
+    uint32_t mant = value & 0x03ffu;
+
+    uint32_t out;
+    if (exp == 0) {
+        if (mant == 0) {
+            out = sign;
+        } else {
+            exp = 1;
+            while ((mant & 0x0400u) == 0) {
+                mant <<= 1;
+                --exp;
+            }
+            mant &= 0x03ffu;
+            out = sign | ((exp + 127 - 15) << 23) | (mant << 13);
+        }
+    } else if (exp == 31) {
+        out = sign | 0x7f800000u | (mant << 13);
+    } else {
+        out = sign | ((exp + 127 - 15) << 23) | (mant << 13);
+    }
+
+    union {
+        uint32_t u;
+        float f;
+    } result { out };
+    return result.f;
+}
 
 static uint32_t find_memory_type(VkPhysicalDevice physical, uint32_t bits, VkMemoryPropertyFlags flags) {
     VkPhysicalDeviceMemoryProperties props {};
@@ -76,6 +133,8 @@ int main(int argc, char ** argv) {
         const uint32_t rows = argc > 1 ? std::strtoul(argv[1], nullptr, 10) : 1024;
         const uint32_t cols = argc > 2 ? std::strtoul(argv[2], nullptr, 10) : 1024;
         const char * spv_path = argc > 3 ? argv[3] : "matvec_scalar.spv";
+        const std::string mode = argc > 4 ? argv[4] : "f32";
+        const bool a_is_f16 = mode == "f16a";
 
         VkApplicationInfo app { VK_STRUCTURE_TYPE_APPLICATION_INFO };
         app.pApplicationName = "powervr-matvec-repro";
@@ -127,7 +186,7 @@ int main(int argc, char ** argv) {
             return ((v + align - 1) / align) * align;
         };
         const VkDeviceSize a_offset = align;
-        const VkDeviceSize a_size = VkDeviceSize(rows) * cols * sizeof(float);
+        const VkDeviceSize a_size = VkDeviceSize(rows) * cols * (a_is_f16 ? sizeof(uint16_t) : sizeof(float));
         const VkDeviceSize b_offset = align_up(a_offset + a_size);
         const VkDeviceSize b_size = VkDeviceSize(cols) * sizeof(float);
         const VkDeviceSize d_offset = align_up(b_offset + b_size);
@@ -146,18 +205,24 @@ int main(int argc, char ** argv) {
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
         auto * base = static_cast<uint8_t *>(staging.mapped);
-        float * pa = reinterpret_cast<float *>(base + a_offset);
+        float * pa_f32 = reinterpret_cast<float *>(base + a_offset);
+        uint16_t * pa_f16 = reinterpret_cast<uint16_t *>(base + a_offset);
         float * pb = reinterpret_cast<float *>(base + b_offset);
         float * pd = reinterpret_cast<float *>(base + d_offset);
         for (uint32_t r = 0; r < rows; ++r) {
             for (uint32_t c = 0; c < cols; ++c) {
-                const int v = int((r * 17 + c * 13) % 97) - 48;
-                pa[uint64_t(r) * cols + c] = float(v) / 97.0f;
+                const int v = int((r * 17 + c * 13) % 2001) - 1000;
+                const float a_value = float(v) / 1000.0f;
+                if (a_is_f16) {
+                    pa_f16[uint64_t(r) * cols + c] = fp32_to_fp16(a_value);
+                } else {
+                    pa_f32[uint64_t(r) * cols + c] = a_value;
+                }
             }
         }
         for (uint32_t c = 0; c < cols; ++c) {
-            const int v = int((c * 19) % 89) - 44;
-            pb[c] = float(v) / 89.0f;
+            const int v = int((c * 19) % 2001) - 1000;
+            pb[c] = float(v) / 1000.0f;
         }
         for (uint32_t r = 0; r < rows; ++r) {
             pd[r] = 0.0f;
@@ -323,7 +388,8 @@ int main(int argc, char ** argv) {
         for (uint32_t r = 0; r < rows; ++r) {
             double expect = 0.0;
             for (uint32_t c = 0; c < cols; ++c) {
-                expect += double(pa[uint64_t(r) * cols + c]) * double(pb[c]);
+                const float a_value = a_is_f16 ? fp16_to_fp32(pa_f16[uint64_t(r) * cols + c]) : pa_f32[uint64_t(r) * cols + c];
+                expect += double(a_value) * double(pb[c]);
             }
             const float got = static_cast<float *>(readback.mapped)[r];
             const double err = std::fabs(double(got) - expect);
@@ -333,9 +399,9 @@ int main(int argc, char ** argv) {
             }
         }
 
-        std::cout << "rows=" << rows << " cols=" << cols
+        std::cout << "mode=" << mode << " rows=" << rows << " cols=" << cols
                   << " max_err=" << max_err << " max_row=" << max_row << "\n";
-        return max_err < 5e-4 ? 0 : 2;
+        return max_err < (a_is_f16 ? 2e-2 : 5e-4) ? 0 : 2;
     } catch (const std::exception & e) {
         std::cerr << "error: " << e.what() << "\n";
         return 1;
