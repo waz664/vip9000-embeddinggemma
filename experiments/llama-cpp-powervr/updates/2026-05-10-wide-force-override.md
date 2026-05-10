@@ -43,3 +43,29 @@ timeout 60s env GGML_VK_VISIBLE_DEVICES=0 \
 
 The env var is for debugging only. Do not use it for normal inference or
 benchmarks.
+
+## Guarded LLM Sanity
+
+The guarded default path still initializes and generates with `-ngl 2`:
+
+```bash
+cd /home/radxa/llama.cpp
+timeout 180s env GGML_VK_VISIBLE_DEVICES=0 \
+  build-vulkan/bin/llama-completion \
+  -m /home/radxa/llama.cpp/Qwen3-0.6B-F32-from-Q8.gguf \
+  -p 'Say OK.' -n 2 -c 64 -ngl 2 \
+  --no-op-offload --no-kv-offload -fa off \
+  --no-display-prompt --no-conversation --reasoning off \
+  --temp 0.2 --top-p 0.9 --no-perf
+```
+
+Observed:
+
+```text
+load_tensors: offloaded 2/29 layers to GPU
+load_tensors:      Vulkan0 model buffer size =     0.01 MiB
+generated text: I can
+```
+
+This is only a runtime sanity check. It is not yet meaningful acceleration
+because the large Qwen projections remain CPU guarded.
