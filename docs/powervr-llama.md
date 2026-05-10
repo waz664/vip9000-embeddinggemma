@@ -2,10 +2,11 @@
 
 This repo includes an experimental llama.cpp patch for Radxa Cubie A7S / Allwinner A733 PowerVR BXM Vulkan.
 
-Patch:
+Patches:
 
 ```bash
 patches/llama.cpp/0001-vulkan-enable-powervr-scalar-f16-matvec-offload.patch
+patches/llama.cpp/0002-vulkan-fix-powervr-scalar-f16-matvec-dispatch.patch
 ```
 
 Tested local result:
@@ -33,6 +34,7 @@ Current limits:
 - prompt batches should stay small, for example `-b 8 -ub 8`
 - KV cache and flash attention are kept off for this path
 - generated text is currently corrupted compared with the CPU path, so this is a GPU execution milestone, not a quality milestone
+- strict backend correctness for the first Qwen F16 token matvec is not passing yet
 
 Live server command used for the WebUI:
 
@@ -57,3 +59,22 @@ model=qwen3-0.6b-powervr
 ```
 
 The patch works by adding a scalar F16-weight/F32-vector matvec shader matching the standalone Vulkan repro and avoiding the subgroup/RTE SPIR-V mutations that the PowerVR driver rejects for this pipeline.
+
+## Correctness Worklog
+
+The first quality fix targets the isolated Qwen token matvec exported from llama.cpp:
+
+```text
+MUL_MAT(name=Vcur-0,type=f32,ne=[1024,1,1,1],sources=f16[1024,1024,1,1],f32[1024,1,1,1])
+```
+
+Before `0002`, ggml launched the scalar F16 shader with the old subgroup workgroup denominator. On PowerVR BXM the shader uses one invocation per output row, so most rows were not written and `test-backend-ops` reported `ERR = inf`.
+
+After `0002`, the same op produces finite, close values, but still fails the strict backend tolerance:
+
+```text
+[MUL_MAT] ERR = 0.952921962 > 0.000500000
+sample diffs: 0.026741, -0.020079, -0.006459, 0.003721
+```
+
+The standalone direct Vulkan repro continues to validate the same F16 matvec shape with low absolute error, so the next work item is to close the remaining ggml integration gap rather than changing the model or prompt.
