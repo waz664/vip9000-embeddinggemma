@@ -11,4 +11,5 @@ fi
 
 export VIP9000_RAG_MODEL_DIR="$INSTALL_DIR"
 export VIP9000_RAG_PORT="$PORT"
+export VIP9000_RAG_LLM_PROVIDER="${VIP9000_RAG_LLM_PROVIDER:-ollama}"
 exec python3 "$INSTALL_DIR/webui/app.py"

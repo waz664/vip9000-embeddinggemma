@@ -18,6 +18,9 @@ RAG_DIR = MODEL_DIR / "rag_demo" / "index"
 WORK_DIR = Path(os.environ.get("VIP9000_RAG_WORK_DIR", str(MODEL_DIR / "webui_work")))
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 OLLAMA_MODEL = "qwen3:0.6b"
+LLM_PROVIDER = os.environ.get("VIP9000_RAG_LLM_PROVIDER", "ollama").strip().lower()
+LLAMA_CPP_URL = os.environ.get("VIP9000_RAG_LLAMA_CPP_URL", "http://127.0.0.1:8081/v1/chat/completions")
+LLAMA_CPP_MODEL = os.environ.get("VIP9000_RAG_LLAMA_CPP_MODEL", "qwen3-0.6b-powervr")
 TOP_K = 2
 KB_MIN_COSINE = float(os.environ.get("VIP9000_RAG_MIN_COSINE", "0.35"))
 PORT = int(os.environ.get("VIP9000_RAG_PORT", "8080"))
@@ -61,7 +64,7 @@ def retrieve(query: str) -> tuple[list[dict], float]:
     return hits, embed_s
 
 
-def ollama_answer(query: str, hits: list[dict]) -> tuple[str, float, bool]:
+def build_messages(query: str, hits: list[dict]) -> tuple[list[dict], bool]:
     use_kb = bool(hits and hits[0]["cosine"] >= KB_MIN_COSINE)
     if use_kb:
         context = "\n\n".join(
@@ -78,12 +81,47 @@ def ollama_answer(query: str, hits: list[dict]) -> tuple[str, float, bool]:
             "a relevant source, so do not cite KB sources."
         )
         prompt = query
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": prompt},
+    ], use_kb
+
+
+def post_json(url: str, payload: dict, timeout_s: int = 240) -> tuple[dict, float]:
+    data = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    t0 = time.perf_counter()
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_s) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"LLM request failed: {exc}") from exc
+    return result, time.perf_counter() - t0
+
+
+def llm_answer(query: str, hits: list[dict]) -> tuple[str, float, bool, str]:
+    messages, use_kb = build_messages(query, hits)
+    if LLM_PROVIDER == "llama_cpp":
+        payload = {
+            "model": LLAMA_CPP_MODEL,
+            "messages": messages,
+            "stream": False,
+            "temperature": 0.2,
+            "max_tokens": 80,
+        }
+        result, elapsed = post_json(LLAMA_CPP_URL, payload)
+        content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        return content.strip(), elapsed, use_kb, LLAMA_CPP_MODEL
+    if LLM_PROVIDER != "ollama":
+        raise RuntimeError(f"unsupported VIP9000_RAG_LLM_PROVIDER={LLM_PROVIDER!r}")
     payload = {
         "model": OLLAMA_MODEL,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt},
-        ],
+        "messages": messages,
         "stream": False,
         "think": False,
         "options": {
@@ -93,20 +131,8 @@ def ollama_answer(query: str, hits: list[dict]) -> tuple[str, float, bool]:
             "num_thread": 4,
         },
     }
-    data = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(
-        OLLAMA_URL,
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    t0 = time.perf_counter()
-    try:
-        with urllib.request.urlopen(request, timeout=240) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"Ollama request failed: {exc}") from exc
-    return result.get("message", {}).get("content", "").strip(), time.perf_counter() - t0, use_kb
+    result, elapsed = post_json(OLLAMA_URL, payload)
+    return result.get("message", {}).get("content", "").strip(), elapsed, use_kb, OLLAMA_MODEL
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -147,7 +173,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             t0 = time.perf_counter()
             hits, embed_s = retrieve(query)
-            answer, llm_s, used_kb = ollama_answer(query, hits)
+            answer, llm_s, used_kb, model_name = llm_answer(query, hits)
             self.send_json(
                 200,
                 {
@@ -161,7 +187,8 @@ class Handler(BaseHTTPRequestHandler):
                         "llm_s": llm_s,
                         "total_s": time.perf_counter() - t0,
                     },
-                    "model": OLLAMA_MODEL,
+                    "model": model_name,
+                    "provider": LLM_PROVIDER,
                 },
             )
         except Exception as exc:
@@ -174,7 +201,7 @@ def main() -> int:
     if not math.isfinite(float(np.load(RAG_DIR / "embeddings.npy")[0, 0])):
         raise RuntimeError("index embeddings are invalid")
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
-    print(f"RAG WebUI listening on http://0.0.0.0:{PORT}", flush=True)
+    print(f"RAG WebUI listening on http://0.0.0.0:{PORT} using {LLM_PROVIDER}", flush=True)
     server.serve_forever()
     return 0
 

@@ -215,10 +215,10 @@
   <div class="shell">
     <aside>
       <h1>Radxa Cubie A7S RAG</h1>
-      <div class="sub">EmbeddingGemma runs the retrieval embedding on the VIP9000 NPU. Qwen3 0.6B answers through Ollama using the retrieved context.</div>
+      <div class="sub">EmbeddingGemma runs retrieval embedding on the VIP9000 NPU. Qwen3 0.6B answers through Ollama or the local llama.cpp server using retrieved context.</div>
       <div class="stats">
         <div class="stat"><b>Embedding</b><span>FP32 masked/bias seq128 NPU graph</span></div>
-        <div class="stat"><b>Generator</b><span>qwen3:0.6b via Ollama</span></div>
+        <div class="stat"><b>Generator</b><span id="generator">Qwen3 0.6B local backend</span></div>
         <div class="stat"><b>Knowledgebase</b><span>Used only when retrieval clears the relevance threshold</span></div>
       </div>
     </aside>
@@ -295,7 +295,9 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'request failed');
         const kb = data.used_kb ? 'KB used' : `KB skipped (top hit below ${data.min_cosine.toFixed(2)})`;
-        timing.textContent = `${kb} · embedding ${data.timing.embedding_s.toFixed(1)}s · qwen ${data.timing.llm_s.toFixed(1)}s · total ${data.timing.total_s.toFixed(1)}s`;
+        const provider = data.provider === 'llama_cpp' ? 'llama.cpp' : 'ollama';
+        document.getElementById('generator').textContent = `${data.model || 'Qwen3'} via ${provider}`;
+        timing.textContent = `${kb} · embedding ${data.timing.embedding_s.toFixed(1)}s · ${provider} ${data.timing.llm_s.toFixed(1)}s · total ${data.timing.total_s.toFixed(1)}s`;
         history.push({role: 'assistant', text: data.answer || '', hits: data.hits || [], used_kb: data.used_kb});
         render();
       } catch (err) {
