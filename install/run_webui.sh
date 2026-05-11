@@ -16,4 +16,4 @@ export VIP9000_RAG_LLM_PROVIDER="${VIP9000_RAG_LLM_PROVIDER:-ollama}"
 if [[ -z "${EMBEDDINGGEMMA_VIP_RUNNER:-}" && -x "$REPO_DIR/tools/persistent_viplite_runner" ]]; then
   export EMBEDDINGGEMMA_VIP_RUNNER="$REPO_DIR/tools/persistent_viplite_runner"
 fi
-exec python3 "$INSTALL_DIR/webui/app.py"
+exec python3 "$REPO_DIR/webui/app.py"

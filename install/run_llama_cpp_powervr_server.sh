@@ -16,13 +16,14 @@ cmd=(
   -m "$MODEL"
   --host "$HOST"
   --port "$PORT"
-  -c "${CTX_SIZE:-2048}"
+  -c "${CTX_SIZE:-4096}"
   -b "${BATCH_SIZE:-8}"
   -ub "${UBATCH_SIZE:-8}"
   -ngl "${GPU_LAYERS:-2}"
   --no-kv-offload
   -fa off
-  --reasoning off
+  --reasoning "${REASONING:-auto}"
+  --reasoning-budget-message "${REASONING_BUDGET_MESSAGE:-Now provide the final answer.}"
   -np "${PARALLEL_SLOTS:-1}"
   --no-cache-idle-slots
   --no-warmup

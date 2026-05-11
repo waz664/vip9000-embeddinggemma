@@ -214,7 +214,7 @@
       border-top: 1px solid var(--line);
       padding: 18px 28px 22px;
       display: grid;
-      grid-template-columns: 1fr auto auto;
+      grid-template-columns: 1fr auto auto auto;
       gap: 12px;
       background: #13151a;
     }
@@ -301,6 +301,7 @@
       <form id="form">
         <input id="query" autocomplete="off" value="does Cubie A7S support NVMe storage?">
         <label class="inline"><input id="allowWeb" type="checkbox"> Web</label>
+        <label class="inline"><input id="allowThink" type="checkbox"> Think</label>
         <button id="send" type="submit">Ask</button>
       </form>
     </main>
@@ -312,6 +313,7 @@
     const chat = document.getElementById('chat');
     const timing = document.getElementById('timing');
     const allowWeb = document.getElementById('allowWeb');
+    const allowThink = document.getElementById('allowThink');
     const kbstat = document.getElementById('kbstat');
     const runtime = document.getElementById('runtime');
     const ingestStatus = document.getElementById('ingestStatus');
@@ -397,15 +399,16 @@
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({query: value, allow_web: allowWeb.checked})
+          body: JSON.stringify({query: value, allow_web: allowWeb.checked, think: allowThink.checked})
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'request failed');
         const kb = data.used_kb ? 'KB used' : `KB skipped (top hit below ${data.min_cosine.toFixed(2)})`;
         const provider = data.provider === 'llama_cpp' ? 'llama.cpp' : 'ollama';
         const web = data.web_hits && data.web_hits.length ? ` · web ${data.timing.web_s.toFixed(1)}s` : '';
+        const think = data.think ? ' · think' : '';
         const usage = data.usage && data.usage.total_tokens ? ` · ${data.usage.total_tokens} tokens` : '';
-        timing.textContent = `${kb}${web} · embedding ${data.timing.embedding_s.toFixed(1)}s · ${provider} ${data.timing.llm_s.toFixed(1)}s · total ${data.timing.total_s.toFixed(1)}s${usage}`;
+        timing.textContent = `${kb}${web}${think} · embedding ${data.timing.embedding_s.toFixed(1)}s · ${provider} ${data.timing.llm_s.toFixed(1)}s · total ${data.timing.total_s.toFixed(1)}s${usage}`;
         updateStats(data);
         history.push({role: 'assistant', text: data.answer || '', hits: data.hits || [], web_hits: data.web_hits || [], used_kb: data.used_kb});
         render();

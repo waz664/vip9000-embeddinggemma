@@ -31,6 +31,11 @@ LLAMA_CPP_MODEL = os.environ.get("VIP9000_RAG_LLAMA_CPP_MODEL", "qwen3-0.6b-powe
 TOP_K = int(os.environ.get("VIP9000_RAG_TOP_K", "3"))
 CONTEXT_CHARS = int(os.environ.get("VIP9000_RAG_CONTEXT_CHARS", "1000"))
 MAX_TOKENS = int(os.environ.get("VIP9000_RAG_MAX_TOKENS", "256"))
+THINK_MAX_TOKENS = int(os.environ.get("VIP9000_RAG_THINK_MAX_TOKENS", "768"))
+THINK_REASONING_BUDGET = int(os.environ.get("VIP9000_RAG_THINK_REASONING_BUDGET", "384"))
+THINK_NUM_CTX = int(os.environ.get("VIP9000_RAG_THINK_NUM_CTX", "4096"))
+LLM_TIMEOUT_S = int(os.environ.get("VIP9000_RAG_LLM_TIMEOUT_S", "360"))
+THINK_TIMEOUT_S = int(os.environ.get("VIP9000_RAG_THINK_TIMEOUT_S", "900"))
 KB_MIN_COSINE = float(os.environ.get("VIP9000_RAG_MIN_COSINE", "0.35"))
 QUERY_CACHE = os.environ.get("VIP9000_RAG_QUERY_CACHE", "1") != "0"
 RESPONSE_CACHE = os.environ.get("VIP9000_RAG_RESPONSE_CACHE", "1") != "0"
@@ -183,7 +188,7 @@ def index_fingerprint() -> str:
     return h.hexdigest()
 
 
-def response_cache_path(query: str, hits: list[dict], used_kb: bool, web_hits: Optional[list[dict]] = None) -> Path:
+def response_cache_path(query: str, hits: list[dict], used_kb: bool, web_hits: Optional[list[dict]] = None, think: bool = False) -> Path:
     sources = [
         {
             "rank": hit.get("rank"),
@@ -195,10 +200,13 @@ def response_cache_path(query: str, hits: list[dict], used_kb: bool, web_hits: O
     ] if used_kb else []
     payload = {
         "query": query.strip(),
-        "cache_version": 2,
+        "cache_version": 3,
         "index": index_fingerprint(),
         "provider": LLM_PROVIDER,
         "model": LLAMA_CPP_MODEL if LLM_PROVIDER == "llama_cpp" else OLLAMA_MODEL,
+        "think": think,
+        "max_tokens": THINK_MAX_TOKENS if think else MAX_TOKENS,
+        "reasoning_budget": THINK_REASONING_BUDGET if think else 0,
         "top_k": TOP_K,
         "context_chars": CONTEXT_CHARS,
         "min_cosine": KB_MIN_COSINE,
@@ -364,7 +372,7 @@ def extracted_fields(query: str, hits: list[dict]) -> list[str]:
     return fields
 
 
-def build_messages(query: str, hits: list[dict], web_hits: Optional[list[dict]] = None) -> tuple[list[dict], bool]:
+def build_messages(query: str, hits: list[dict], web_hits: Optional[list[dict]] = None, think: bool = False) -> tuple[list[dict], bool]:
     use_kb = bool(hits and hits[0]["cosine"] >= KB_MIN_COSINE)
     web_hits = web_hits or []
     if use_kb:
@@ -400,10 +408,18 @@ def build_messages(query: str, hits: list[dict], web_hits: Optional[list[dict]] 
             "a relevant source, so do not cite KB sources."
         )
         prompt = query
+    if think:
+        system += " Take extra time to compare the evidence and produce a better final answer. Return only the final answer."
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": prompt},
     ], use_kb
+
+
+def clean_answer(content: str) -> str:
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.IGNORECASE | re.DOTALL)
+    content = re.sub(r"^\s*</think>\s*", "", content, flags=re.IGNORECASE)
+    return content.strip()
 
 
 def post_json(url: str, payload: dict, timeout_s: int = 240) -> tuple[dict, float]:
@@ -427,22 +443,27 @@ def post_json(url: str, payload: dict, timeout_s: int = 240) -> tuple[dict, floa
     return result, time.perf_counter() - t0
 
 
-def llm_answer(query: str, hits: list[dict], web_hits: Optional[list[dict]] = None) -> tuple[str, float, bool, str, dict]:
-    messages, use_kb = build_messages(query, hits, web_hits)
+def llm_answer(query: str, hits: list[dict], web_hits: Optional[list[dict]] = None, think: bool = False) -> tuple[str, float, bool, str, dict]:
+    messages, use_kb = build_messages(query, hits, web_hits, think)
+    max_tokens = THINK_MAX_TOKENS if think else MAX_TOKENS
     if LLM_PROVIDER == "llama_cpp":
         payload = {
             "model": LLAMA_CPP_MODEL,
             "messages": messages,
             "stream": False,
-            "temperature": 0.2,
-            "max_tokens": MAX_TOKENS,
+            "temperature": 0.25 if think else 0.2,
+            "max_tokens": max_tokens,
+            "chat_template_kwargs": {"enable_thinking": think},
         }
-        result, elapsed = post_json(LLAMA_CPP_URL, payload)
-        content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        if think:
+            payload["thinking_budget_tokens"] = THINK_REASONING_BUDGET
+        result, elapsed = post_json(LLAMA_CPP_URL, payload, THINK_TIMEOUT_S if think else LLM_TIMEOUT_S)
+        message = result.get("choices", [{}])[0].get("message", {})
+        content = message.get("content", "")
         usage = result.get("usage", {}) if isinstance(result.get("usage", {}), dict) else {}
         prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
         completion_tokens = int(usage.get("completion_tokens", 0) or 0)
-        return content.strip(), elapsed, use_kb, LLAMA_CPP_MODEL, {
+        return clean_answer(content), elapsed, use_kb, LLAMA_CPP_MODEL, {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "total_tokens": int(usage.get("total_tokens", prompt_tokens + completion_tokens) or 0),
@@ -453,27 +474,27 @@ def llm_answer(query: str, hits: list[dict], web_hits: Optional[list[dict]] = No
         "model": OLLAMA_MODEL,
         "messages": messages,
         "stream": False,
-        "think": False,
+        "think": think,
         "options": {
-            "temperature": 0.2,
-            "num_ctx": 1024,
-            "num_predict": MAX_TOKENS,
+            "temperature": 0.25 if think else 0.2,
+            "num_ctx": THINK_NUM_CTX if think else 1024,
+            "num_predict": max_tokens,
             "num_thread": 4,
         },
     }
-    result, elapsed = post_json(OLLAMA_URL, payload)
+    result, elapsed = post_json(OLLAMA_URL, payload, THINK_TIMEOUT_S if think else LLM_TIMEOUT_S)
     prompt_tokens = int(result.get("prompt_eval_count", 0) or 0)
     completion_tokens = int(result.get("eval_count", 0) or 0)
-    return result.get("message", {}).get("content", "").strip(), elapsed, use_kb, OLLAMA_MODEL, {
+    return clean_answer(result.get("message", {}).get("content", "")), elapsed, use_kb, OLLAMA_MODEL, {
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "total_tokens": prompt_tokens + completion_tokens,
     }
 
 
-def cached_llm_answer(query: str, hits: list[dict], web_hits: Optional[list[dict]] = None) -> tuple[str, float, bool, str, bool, dict]:
-    _, use_kb = build_messages(query, hits, web_hits)
-    cache_path = response_cache_path(query, hits, use_kb, web_hits)
+def cached_llm_answer(query: str, hits: list[dict], web_hits: Optional[list[dict]] = None, think: bool = False) -> tuple[str, float, bool, str, bool, dict]:
+    _, use_kb = build_messages(query, hits, web_hits, think)
+    cache_path = response_cache_path(query, hits, use_kb, web_hits, think)
     if RESPONSE_CACHE and cache_path.exists():
         t0 = time.perf_counter()
         cached = json.loads(cache_path.read_text(encoding="utf-8"))
@@ -486,7 +507,7 @@ def cached_llm_answer(query: str, hits: list[dict], web_hits: Optional[list[dict
             cached.get("usage", {}) if isinstance(cached.get("usage", {}), dict) else {},
         )
 
-    answer, elapsed, used_kb, model_name, usage = llm_answer(query, hits, web_hits)
+    answer, elapsed, used_kb, model_name, usage = llm_answer(query, hits, web_hits, think)
     if RESPONSE_CACHE:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = cache_path.with_suffix(".tmp")
@@ -497,6 +518,9 @@ def cached_llm_answer(query: str, hits: list[dict], web_hits: Optional[list[dict
                     "used_kb": used_kb,
                     "model": model_name,
                     "provider": LLM_PROVIDER,
+                    "think": think,
+                    "max_tokens": THINK_MAX_TOKENS if think else MAX_TOKENS,
+                    "reasoning_budget": THINK_REASONING_BUDGET if think else 0,
                     "usage": usage,
                     "created_at": time.time(),
                 },
@@ -614,6 +638,10 @@ class Handler(BaseHTTPRequestHandler):
                 "provider": LLM_PROVIDER,
                 "model": LLAMA_CPP_MODEL if LLM_PROVIDER == "llama_cpp" else OLLAMA_MODEL,
                 "web_search_enabled": WEB_SEARCH,
+                "thinking": {
+                    "max_tokens": THINK_MAX_TOKENS,
+                    "reasoning_budget": THINK_REASONING_BUDGET,
+                },
             }
             self.send_json(200, payload)
             return
@@ -633,6 +661,7 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(body.decode("utf-8"))
             query = str(payload.get("query", "")).strip()
             allow_web = bool(payload.get("allow_web", False))
+            think = bool(payload.get("think", False))
             if not query:
                 self.send_json(400, {"error": "query is required"})
                 return
@@ -651,7 +680,7 @@ class Handler(BaseHTTPRequestHandler):
                     web_s = 0.0
             else:
                 hits, embed_s, embedding_cache_hit = retrieve(query)
-            answer, llm_s, used_kb, model_name, response_cache_hit, usage = cached_llm_answer(query, hits, web_hits)
+            answer, llm_s, used_kb, model_name, response_cache_hit, usage = cached_llm_answer(query, hits, web_hits, think)
             total_s = time.perf_counter() - t0
             add_stats(
                 requests=1,
@@ -680,6 +709,7 @@ class Handler(BaseHTTPRequestHandler):
                     },
                     "embedding_cache_hit": embedding_cache_hit,
                     "response_cache_hit": response_cache_hit,
+                    "think": think,
                     "usage": usage,
                     "stats": stats_snapshot(),
                     "model": model_name,

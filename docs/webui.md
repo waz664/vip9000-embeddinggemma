@@ -25,6 +25,7 @@ It uses:
 - a small hybrid retrieval boost for hardware spec terms such as SoC, LPDDR5, NVMe, PCIe, USB-C, and DisplayPort
 - top-3 retrieved context by default, configurable with `VIP9000_RAG_TOP_K`
 - a `VIP9000_RAG_MAX_TOKENS` answer budget, default `256`, so multi-part spec answers do not truncate early
+- an optional Think checkbox that enables Qwen thinking with a larger final-answer budget
 - cumulative runtime stats from `/api/status`, including request count and LLM token counts
 - URL/file knowledge ingestion from the sidebar
 - optional web search results for Qwen when the chat prompt enables web access
@@ -81,6 +82,14 @@ Disable the web tool with:
 VIP9000_RAG_WEB_SEARCH=0
 ```
 
+The Think checkbox is for slower, higher-effort answers. Normal requests explicitly send
+`enable_thinking=false` to llama.cpp and keep `VIP9000_RAG_MAX_TOKENS=256`. Think requests
+send `enable_thinking=true`, use `VIP9000_RAG_THINK_MAX_TOKENS=768`, and cap hidden
+reasoning with `VIP9000_RAG_THINK_REASONING_BUDGET=384` so the model has room to produce
+the final answer. Think requests use `VIP9000_RAG_THINK_TIMEOUT_S=900` by default because
+the small board can take several minutes on harder prompts. The WebUI strips any raw
+`<think>...</think>` block before display.
+
 ## WebUI Eval
 
 Run the fixed Radxa Cubie A7S eval suite:
@@ -118,7 +127,11 @@ VIP9000_RAG_LLAMA_CPP_URL=http://127.0.0.1:8081/v1/chat/completions \
 bash install/run_webui.sh
 ```
 
-This path uses `-ngl 2`, `-c 512`, `-b 8`, `-ub 8`, CPU KV cache, flash attention disabled, `LLAMA_VK_NO_OUTPUT_OFFLOAD=1`, and the quality-first PowerVR matvec-only policy from patch `0004`.
+This path uses `-ngl 2`, `-c 4096`, `-b 8`, `-ub 8`, CPU KV cache, flash attention disabled, `LLAMA_VK_NO_OUTPUT_OFFLOAD=1`, and the quality-first PowerVR matvec-only policy from patch `0004`.
+The installed service uses `--reasoning auto` so the WebUI can toggle thinking per
+request while normal prompts still run with thinking disabled. It also sets
+`--reasoning-budget-message "Now provide the final answer."` so capped thinking requests
+are pushed toward a final response.
 
 Latest local smoke result:
 
