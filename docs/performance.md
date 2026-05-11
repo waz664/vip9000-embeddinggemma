@@ -129,3 +129,39 @@ run=2 wall=9.17s  embedding=0.0007s  llm=9.16s  total=9.17s  embedding_cache_hit
 ```
 
 This is the current best end-to-end user experience: the first new question still pays the NPU embedding cost, while repeated exact questions return in about 9 seconds on this board.
+
+## PowerVR Auxiliary Op Trials
+
+Patch `0005` added opt-in gates for testing one extra Vulkan op family at a time:
+
+```text
+GGML_VK_POWERVR_ALLOW_RMS_NORM=1
+GGML_VK_POWERVR_ALLOW_SWIGLU=1
+GGML_VK_POWERVR_ALLOW_ROPE=1
+GGML_VK_POWERVR_ALLOW_ELEMENTWISE=1
+```
+
+Results:
+
+| Family | Op Check | Generation | Decision |
+| --- | --- | --- | --- |
+| RMS_NORM | pass | coherent | keep opt-in |
+| SWIGLU | pass | coherent | keep opt-in |
+| ROPE | fails Q-cur shapes with `ERR = inf` | not promoted | unsafe |
+| same-shape elementwise | pass | corrupt output | unsafe |
+
+Combined `RMS_NORM + SWIGLU` WebUI benchmark:
+
+```text
+run=1 wall=55.07s embedding=19.2015s llm=35.85s total=55.06s embedding_cache_hit=False
+run=2 wall=12.47s embedding=0.0007s llm=12.46s total=12.46s embedding_cache_hit=True
+```
+
+That is slower than the default projection-matvec-only service benchmark:
+
+```text
+run=1 total=33.18s
+run=2 total=9.17s
+```
+
+Conclusion: do not enable RMS_NORM or SWIGLU by default yet. The extra GPU ops are quality-correct, but the additional graph splits and synchronization cost outweigh their compute savings.

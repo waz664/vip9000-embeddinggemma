@@ -8,6 +8,7 @@
   - patched llama.cpp PowerVR Vulkan server
   - RAG WebUI
 - Added experimental llama.cpp PowerVR patches through `0004`, using a quality-first Qwen F16 projection matvec path.
+- Added patch `0005` with opt-in PowerVR op-family debug gates for RMS_NORM, SWIGLU, ROPE, and same-shape elementwise ops.
 - Added user/system systemd service installer:
   - `vip9000-llama.service`
   - `vip9000-rag-webui.service`
@@ -21,6 +22,7 @@
   - first run: `33.18 s`, `embedding_cache_hit=False`
   - repeated run: `9.17 s`, `embedding_cache_hit=True`
 - Documented CPU-only vs PowerVR hybrid benchmark results and current limitations.
+- Documented auxiliary PowerVR op trials; RMS_NORM and SWIGLU are coherent but slower in the current WebUI workload, while ROPE and elementwise remain unsafe.
 
 ## v0.1.1
 

@@ -9,6 +9,7 @@ patches/llama.cpp/0001-vulkan-enable-powervr-scalar-f16-matvec-offload.patch
 patches/llama.cpp/0002-vulkan-fix-powervr-scalar-f16-matvec-dispatch.patch
 patches/llama.cpp/0003-vulkan-submit-powervr-scalar-f16-matvec-dispatches.patch
 patches/llama.cpp/0004-vulkan-keep-powervr-qwen-offload-quality-first.patch
+patches/llama.cpp/0005-vulkan-add-powervr-op-family-debug-gates.patch
 ```
 
 Tested local result:
@@ -44,6 +45,7 @@ Current limits:
 - the output layer must stay on CPU with `LLAMA_VK_NO_OUTPUT_OFFLOAD=1`
 - prompt batches should stay small, for example `-b 8 -ub 8`
 - KV cache and flash attention are kept off for this path
+- `GGML_VK_POWERVR_ALLOW_RMS_NORM=1`, `GGML_VK_POWERVR_ALLOW_SWIGLU=1`, `GGML_VK_POWERVR_ALLOW_ROPE=1`, and `GGML_VK_POWERVR_ALLOW_ELEMENTWISE=1` can be used to test one auxiliary op family at a time
 - `GGML_VK_POWERVR_FULL_OPS=1` can be used for debugging the broader generic Vulkan op set, but that path still corrupts Qwen generation on this driver
 
 Stable server command used for the WebUI:
@@ -129,3 +131,15 @@ Rejected to CPU: attention matvecs, SOFT_MAX, output projection, GET_ROWS, SET_R
 ```
 
 The next work item is to re-enable one auxiliary op family at a time with full generation tests after each addition. Do not treat isolated `test-backend-ops` success as sufficient on this PowerVR driver; the earlier broader path passed isolated tests and still corrupted generation.
+
+After `0005`, auxiliary op families can be tested individually without enabling all generic Vulkan ops. Current results:
+
+| Family | `test-backend-ops` | Generation Quality | WebUI Timing Impact | Default |
+| --- | --- | --- | --- | --- |
+| `RMS_NORM` | pass | coherent | not faster in full WebUI test when combined with SWIGLU | off |
+| `SWIGLU` | pass | coherent | not faster in full WebUI test when combined with RMS_NORM | off |
+| `ROPE` | fails Q-cur shapes with `ERR = inf` | not tested further | unsafe | off |
+| same-shape `ADD/SUB/MUL/DIV` | pass for exported same-shape ops | corrupt generation | unsafe | off |
+| `RMS_NORM + SWIGLU` | pass | coherent | slower than default: `55.07 s` cold, `12.47 s` warm vs default service result `33.20 s` cold, `9.17 s` warm | off |
+
+The current conclusion is that the quality-first default should remain projection-matvec only. RMS_NORM and SWIGLU are useful as debug gates and may become useful if graph split/synchronization overhead is reduced, but they do not improve the present WebUI workload.

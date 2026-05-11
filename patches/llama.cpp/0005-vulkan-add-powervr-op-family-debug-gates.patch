@@ -1,0 +1,67 @@
+From b763ab32fcfb2b060ef0f0bbf4c7e9c35f1a2c74 Mon Sep 17 00:00:00 2001
+From: Radxa GPU Experiment <radxa-gpu-experiment@users.noreply.github.com>
+Date: Mon, 11 May 2026 03:54:55 +0000
+Subject: [PATCH] vulkan: add PowerVR op family debug gates
+
+---
+ ggml/src/ggml-vulkan/ggml-vulkan.cpp | 32 ++++++++++++++++++++++++++--
+ 1 file changed, 30 insertions(+), 2 deletions(-)
+
+diff --git a/ggml/src/ggml-vulkan/ggml-vulkan.cpp b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+index 9cbaf667c..cdd631bf3 100644
+--- a/ggml/src/ggml-vulkan/ggml-vulkan.cpp
++++ b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+@@ -15581,6 +15581,10 @@ static bool ggml_backend_vk_device_supports_op(ggml_backend_dev_t dev, const ggm
+     }
+ 
+     if (device->subgroup_size <= 1 && getenv("GGML_VK_POWERVR_FULL_OPS") == nullptr) {
++        const bool powervr_allow_rms_norm    = getenv("GGML_VK_POWERVR_ALLOW_RMS_NORM")    != nullptr;
++        const bool powervr_allow_rope        = getenv("GGML_VK_POWERVR_ALLOW_ROPE")        != nullptr;
++        const bool powervr_allow_swiglu      = getenv("GGML_VK_POWERVR_ALLOW_SWIGLU")      != nullptr;
++        const bool powervr_allow_elementwise = getenv("GGML_VK_POWERVR_ALLOW_ELEMENTWISE") != nullptr;
+         switch (op->op) {
+             case GGML_OP_MUL_MAT:
+             case GGML_OP_NONE:
+@@ -15589,13 +15593,37 @@ static bool ggml_backend_vk_device_supports_op(ggml_backend_dev_t dev, const ggm
+             case GGML_OP_PERMUTE:
+             case GGML_OP_TRANSPOSE:
+                 break;
++            case GGML_OP_RMS_NORM:
++                if (powervr_allow_rms_norm) {
++                    break;
++                }
++                return false;
++            case GGML_OP_ROPE:
++                if (powervr_allow_rope) {
++                    break;
++                }
++                return false;
++            case GGML_OP_GLU:
++                if (powervr_allow_swiglu && ggml_get_glu_op(op) == GGML_GLU_OP_SWIGLU) {
++                    break;
++                }
++                return false;
++            case GGML_OP_ADD:
++            case GGML_OP_SUB:
++            case GGML_OP_MUL:
++            case GGML_OP_DIV:
++                if (powervr_allow_elementwise && ggml_are_same_shape(op->src[0], op->src[1])) {
++                    break;
++                }
++                return false;
+             default:
+                 // PowerVR BXM exposes subgroup size 1. Several generic ggml
+                 // Vulkan kernels pass in isolation but corrupt Qwen graph
+                 // execution when mixed with CPU fallback. Keep the community
+                 // path quality-first: only the custom F16 projection matvec is
+-                // enabled by default. Set GGML_VK_POWERVR_FULL_OPS=1 to debug
+-                // the broader generic Vulkan op set on this driver.
++                // enabled by default. Use GGML_VK_POWERVR_ALLOW_* to test one
++                // family at a time, or GGML_VK_POWERVR_FULL_OPS=1 to debug
++                // the full generic Vulkan op set on this driver.
+                 return false;
+         }
+     }
+-- 
+2.30.2
+
