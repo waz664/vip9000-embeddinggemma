@@ -8,41 +8,52 @@ Patches:
 patches/llama.cpp/0001-vulkan-enable-powervr-scalar-f16-matvec-offload.patch
 patches/llama.cpp/0002-vulkan-fix-powervr-scalar-f16-matvec-dispatch.patch
 patches/llama.cpp/0003-vulkan-submit-powervr-scalar-f16-matvec-dispatches.patch
+patches/llama.cpp/0004-vulkan-keep-powervr-qwen-offload-quality-first.patch
 ```
 
 Tested local result:
 
 ```bash
-cd /home/radxa/llama.cpp
-env GGML_VK_VISIBLE_DEVICES=0 ./build-vulkan/bin/llama-completion \
-  -m /home/radxa/llama.cpp/Qwen3-0.6B-F16-from-Q8.gguf \
-  -p 'Say OK.' \
-  -n 4 -c 64 -b 8 -ub 8 -ngl 2 \
+cd ~/llama.cpp
+env GGML_VK_VISIBLE_DEVICES=0 LLAMA_VK_NO_OUTPUT_OFFLOAD=1 \
+  ./build-vulkan/bin/llama-completion \
+  -m ~/llama.cpp/Qwen3-0.6B-F16-from-Q8.gguf \
+  -p 'The capital of France is' \
+  -n 12 -c 64 -b 8 -ub 8 -ngl 4 \
   --no-kv-offload -fa off \
   --no-display-prompt --no-conversation --reasoning off \
   --temp 0.2 --top-p 0.9 --no-perf
 ```
 
+Observed output:
+
+```text
+ Paris. The capital of the United States is Washington, D
+```
+
 The important signal is that llama.cpp now:
 
-- loads about 30 MiB of real Qwen F16 layer weights into the PowerVR Vulkan model buffer
+- loads real Qwen F16 repeating-layer weights into the PowerVR Vulkan model buffer
+- runs the Qwen projection F16 matvec ops on Vulkan0
 - creates the F16 matvec pipeline successfully
-- completes generation through the Vulkan path
+- completes coherent generation through the mixed CPU/PowerVR path
 
 Current limits:
 
-- only small token-batch F16 matvec is enabled on PowerVR
+- `0004` is quality-first: on PowerVR subgroup-size-1 devices, only Qwen F16 projection matvecs plus metadata views are enabled by default
+- the output layer must stay on CPU with `LLAMA_VK_NO_OUTPUT_OFFLOAD=1`
 - prompt batches should stay small, for example `-b 8 -ub 8`
 - KV cache and flash attention are kept off for this path
-- generated text should be retested after `0003`; prior runs before this correctness fix were corrupted
+- `GGML_VK_POWERVR_FULL_OPS=1` can be used for debugging the broader generic Vulkan op set, but that path still corrupts Qwen generation on this driver
 
 Live server command used for the WebUI:
 
 ```bash
-env GGML_VK_VISIBLE_DEVICES=0 ~/llama.cpp/build-vulkan/bin/llama-server \
+env GGML_VK_VISIBLE_DEVICES=0 LLAMA_VK_NO_OUTPUT_OFFLOAD=1 \
+  ~/llama.cpp/build-vulkan/bin/llama-server \
   -m ~/llama.cpp/Qwen3-0.6B-F16-from-Q8.gguf \
   --host 0.0.0.0 --port 8081 \
-  -c 512 -b 8 -ub 8 -ngl 2 \
+  -c 512 -b 8 -ub 8 -ngl 4 \
   --no-kv-offload -fa off --reasoning off \
   --alias qwen3-0.6b-powervr \
   -np 1 --no-cache-idle-slots
@@ -105,4 +116,13 @@ Qcur-0     f16[1024,2048] x f32[1024,1]: OK
 ffn_gate-0 f16[1024,3072] x f32[1024,1]: OK
 ```
 
-Next steps are to retest full llama generation quality, then expand coverage to batch-8 prompt matvecs and the output projection.
+Batch-8 projection shapes also pass under `test-backend-ops`.
+
+After `0004`, the exported Qwen op scan accepts only the known-good projection matvecs on Vulkan and leaves attention matvecs, softmax, output projection, embedding lookup, KV writes, norms, ROPE, and elementwise ops on CPU. This is slower than the broader offload attempt, but it restores coherent generation:
+
+```text
+Accepted on Vulkan0: 10/10 Qwen F16 projection matvec tests passed
+Rejected to CPU: attention matvecs, SOFT_MAX, output projection, GET_ROWS, SET_ROWS, ROPE, RMS_NORM, SWIGLU, elementwise ops
+```
+
+The next work item is to re-enable one auxiliary op family at a time with full generation tests after each addition. Do not treat isolated `test-backend-ops` success as sufficient on this PowerVR driver; the earlier broader path passed isolated tests and still corrupted generation.

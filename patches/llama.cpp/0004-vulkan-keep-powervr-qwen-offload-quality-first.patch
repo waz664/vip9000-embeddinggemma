@@ -1,0 +1,86 @@
+From c469200ed8ba9dfeefa728dfcb02ed5b64c81cb3 Mon Sep 17 00:00:00 2001
+From: Radxa GPU Experiment <radxa-gpu-experiment@users.noreply.github.com>
+Date: Sun, 10 May 2026 23:59:19 +0000
+Subject: [PATCH] vulkan: keep PowerVR Qwen offload quality-first
+
+---
+ ggml/src/ggml-vulkan/ggml-vulkan.cpp | 25 +++++++++++++++++++++++++
+ src/llama-model.cpp                  |  5 +++++
+ 2 files changed, 30 insertions(+)
+
+diff --git a/ggml/src/ggml-vulkan/ggml-vulkan.cpp b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+index 2115279e7..9cbaf667c 100644
+--- a/ggml/src/ggml-vulkan/ggml-vulkan.cpp
++++ b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+@@ -15580,6 +15580,26 @@ static bool ggml_backend_vk_device_supports_op(ggml_backend_dev_t dev, const ggm
+         return false;
+     }
+ 
++    if (device->subgroup_size <= 1 && getenv("GGML_VK_POWERVR_FULL_OPS") == nullptr) {
++        switch (op->op) {
++            case GGML_OP_MUL_MAT:
++            case GGML_OP_NONE:
++            case GGML_OP_RESHAPE:
++            case GGML_OP_VIEW:
++            case GGML_OP_PERMUTE:
++            case GGML_OP_TRANSPOSE:
++                break;
++            default:
++                // PowerVR BXM exposes subgroup size 1. Several generic ggml
++                // Vulkan kernels pass in isolation but corrupt Qwen graph
++                // execution when mixed with CPU fallback. Keep the community
++                // path quality-first: only the custom F16 projection matvec is
++                // enabled by default. Set GGML_VK_POWERVR_FULL_OPS=1 to debug
++                // the broader generic Vulkan op set on this driver.
++                return false;
++        }
++    }
++
+     switch (op->op) {
+         case GGML_OP_UNARY:
+             switch (ggml_get_unary_op(op)) {
+@@ -15633,6 +15653,8 @@ static bool ggml_backend_vk_device_supports_op(ggml_backend_dev_t dev, const ggm
+                     const bool powervr_f16_token_matvec =
+                         op->op == GGML_OP_MUL_MAT &&
+                         op->src[1]->type == GGML_TYPE_F32 &&
++                        op->src[0]->ne[2] == 1 &&
++                        op->src[0]->ne[3] == 1 &&
+                         op->ne[1] <= mul_mat_vec_max_cols;
+                     if (!powervr_f16_token_matvec) {
+                         // PowerVR BXM reports subgroup size 1. Keep prompt
+@@ -15991,6 +16013,9 @@ static bool ggml_backend_vk_device_supports_op(ggml_backend_dev_t dev, const ggm
+         case GGML_OP_DIAG_MASK_INF:
+             return ggml_is_contiguous(op->src[0]) && op->src[0]->type == GGML_TYPE_F32;
+         case GGML_OP_SOFT_MAX:
++            if (device->subgroup_size <= 1) {
++                return false;
++            }
+             return ggml_is_contiguous(op->src[0]) && op->src[0]->type == GGML_TYPE_F32
+                 && (!op->src[1] || (op->src[1]->type == GGML_TYPE_F32 || op->src[1]->type == GGML_TYPE_F16));
+         case GGML_OP_SOFT_MAX_BACK:
+diff --git a/src/llama-model.cpp b/src/llama-model.cpp
+index 9d011ff34..7d4a54300 100644
+--- a/src/llama-model.cpp
++++ b/src/llama-model.cpp
+@@ -22,6 +22,7 @@
+ #include <algorithm>
+ #include <cassert>
+ #include <cfloat>
++#include <cstdlib>
+ #include <cstdint>
+ #include <cstring>
+ #include <cmath>
+@@ -1249,6 +1250,10 @@ bool llama_model_base::load_tensors(llama_model_loader & ml) {
+ 
+     // assign the output layer
+     pimpl->dev_output = get_layer_buft_list(n_layer);
++    if (std::getenv("LLAMA_VK_NO_OUTPUT_OFFLOAD") != nullptr) {
++        LLAMA_LOG_INFO("%s: LLAMA_VK_NO_OUTPUT_OFFLOAD set, keeping output layer on CPU\n", __func__);
++        pimpl->dev_output = { cpu_dev, &pimpl->cpu_buft_list };
++    }
+ 
+     const auto TENSOR_NOT_REQUIRED = llama_model_loader::TENSOR_NOT_REQUIRED;
+ 
+-- 
+2.30.2
+
