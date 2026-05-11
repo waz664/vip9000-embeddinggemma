@@ -259,14 +259,6 @@ def web_search(query: str, limit: int = 3) -> tuple[list[dict], float]:
     return hits, time.perf_counter() - t0
 
 
-def should_web_search(query: str, used_kb: bool, allow_web: bool) -> bool:
-    if not WEB_SEARCH or not allow_web:
-        return False
-    lowered = query.lower()
-    triggers = ("web", "search", "latest", "current", "today", "news", "download", "release")
-    return (not used_kb) or any(term in lowered for term in triggers)
-
-
 def add_stats(**kwargs) -> None:
     with STATS_LOCK:
         for key, value in kwargs.items():
@@ -645,17 +637,20 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(400, {"error": "query is required"})
                 return
             t0 = time.perf_counter()
-            hits, embed_s, embedding_cache_hit = retrieve(query)
-            used_kb_before_search = bool(hits and hits[0]["cosine"] >= KB_MIN_COSINE)
+            hits = []
+            embed_s = 0.0
+            embedding_cache_hit = False
             web_hits = []
             web_s = 0.0
-            if should_web_search(query, used_kb_before_search, allow_web):
+            if allow_web:
                 try:
                     web_hits, web_s = web_search(query)
                 except Exception as exc:
                     print(f"web search failed: {exc}", flush=True)
                     web_hits = []
                     web_s = 0.0
+            else:
+                hits, embed_s, embedding_cache_hit = retrieve(query)
             answer, llm_s, used_kb, model_name, response_cache_hit, usage = cached_llm_answer(query, hits, web_hits)
             total_s = time.perf_counter() - t0
             add_stats(

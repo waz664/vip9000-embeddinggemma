@@ -73,7 +73,7 @@ VIP9000_RAG_INGEST_MAX_PAGES=8
 VIP9000_RAG_INGEST_MAX_CHUNKS=96
 ```
 
-The Web checkbox enables a lightweight web-search tool for the prompt. When enabled, the backend searches the web for prompts that request current/search/latest information or when the local KB does not clear the relevance threshold. Web sources are passed to Qwen with `[W1]` style citation labels.
+The Web checkbox enables a lightweight web-search tool for the prompt. When enabled, the backend bypasses local KB retrieval, skips the NPU embedding step, searches the web, and passes web sources to Qwen with `[W1]` style citation labels. Leave Web unchecked for local/private KB answers.
 
 Disable the web tool with:
 
