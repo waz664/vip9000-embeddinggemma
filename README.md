@@ -55,7 +55,7 @@ Larger retrieval A/B eval, official CPU TFLite reference vs corrected NPU:
 
 The retrieval result meets the current quality target: query cosine mean >= `0.93`, query cosine min >= `0.90`, overlap@5 >= `0.85`, and reference-top MRR >= `0.70`.
 
-The WebUI includes a persistent exact-query embedding cache. On this board, a repeated NVMe RAG query dropped from about `81 s` cold to about `9.7 s` with the query embedding cached.
+The WebUI includes a persistent exact-query embedding cache and now defaults to sending only the top retrieved chunk to Qwen. On this board, a repeated NVMe RAG query dropped from about `81 s` cold to about `11.2 s` with the query embedding cached and top-1 context.
 
 ## What Is Not Committed
 

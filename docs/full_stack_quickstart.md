@@ -270,6 +270,12 @@ repeat query: embedding_cache_hit=true
 
 Disable this with `VIP9000_RAG_QUERY_CACHE=0` when benchmarking uncached retrieval.
 
+The WebUI also sends only the top retrieved chunk to Qwen by default. Increase context for harder questions with:
+
+```bash
+VIP9000_RAG_TOP_K=2 VIP9000_RAG_CONTEXT_CHARS=700 bash install/run_webui.sh
+```
+
 ## 11. What The Current PowerVR Path Does
 
 The llama.cpp patches are intentionally conservative:

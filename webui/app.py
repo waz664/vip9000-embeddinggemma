@@ -22,7 +22,8 @@ OLLAMA_MODEL = "qwen3:0.6b"
 LLM_PROVIDER = os.environ.get("VIP9000_RAG_LLM_PROVIDER", "ollama").strip().lower()
 LLAMA_CPP_URL = os.environ.get("VIP9000_RAG_LLAMA_CPP_URL", "http://127.0.0.1:8081/v1/chat/completions")
 LLAMA_CPP_MODEL = os.environ.get("VIP9000_RAG_LLAMA_CPP_MODEL", "qwen3-0.6b-powervr")
-TOP_K = 2
+TOP_K = int(os.environ.get("VIP9000_RAG_TOP_K", "1"))
+CONTEXT_CHARS = int(os.environ.get("VIP9000_RAG_CONTEXT_CHARS", "450"))
 KB_MIN_COSINE = float(os.environ.get("VIP9000_RAG_MIN_COSINE", "0.35"))
 QUERY_CACHE = os.environ.get("VIP9000_RAG_QUERY_CACHE", "1") != "0"
 PORT = int(os.environ.get("VIP9000_RAG_PORT", "8080"))
@@ -92,7 +93,7 @@ def build_messages(query: str, hits: list[dict]) -> tuple[list[dict], bool]:
     use_kb = bool(hits and hits[0]["cosine"] >= KB_MIN_COSINE)
     if use_kb:
         context = "\n\n".join(
-            f"[{hit['rank']}] Source: {hit['url']}\n{hit['text'][:700]}" for hit in hits
+            f"[{hit['rank']}] Source: {hit['url']}\n{hit['text'][:CONTEXT_CHARS]}" for hit in hits
         )
         system = (
             "Answer using only the retrieved context. "

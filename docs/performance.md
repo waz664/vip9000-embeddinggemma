@@ -90,3 +90,25 @@ Validation on the same NVMe query:
 | PowerVR hybrid WebUI | hit | 0.0007 s | 9.65 s | 9.66 s | correct, cited |
 
 This is the largest current usability improvement for repeated or common questions. New questions still pay the NPU embedding cost.
+
+## Prompt Context Trim
+
+The WebUI now defaults to:
+
+```text
+VIP9000_RAG_TOP_K=1
+VIP9000_RAG_CONTEXT_CHARS=450
+```
+
+The vector search still computes ranked candidates, but only the best chunk is sent to Qwen by default. Users can raise `VIP9000_RAG_TOP_K` for harder questions that need more context.
+
+Validation on the NVMe query with the query embedding already cached:
+
+| WebUI Context | llama.cpp State | Embedding | llama.cpp | Total | Answer |
+| --- | --- | ---: | ---: | ---: | --- |
+| top-2, 450 chars each | cold prompt cache | 0.0007 s | 51.81 s | 51.82 s | correct, cited |
+| top-2, 450 chars each | warm prompt cache | 0.0007 s | 13.16 s | 13.16 s | correct, cited |
+| top-1, 450 chars | cold prompt cache | 0.0007 s | 34.86 s | 34.86 s | correct, cited |
+| top-1, 450 chars | warm prompt cache | 0.0007 s | 11.18 s | 11.19 s | correct, cited |
+
+For this small Qwen model, shorter retrieved context is a clear latency win. The default is therefore tuned for quick, source-backed answers rather than maximal recall.

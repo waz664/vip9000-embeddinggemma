@@ -21,6 +21,7 @@ It uses:
 - Python standard-library HTTP server, no Flask/FastAPI dependency
 - a relevance threshold, `VIP9000_RAG_MIN_COSINE`, default `0.35`
 - a persistent exact-query embedding cache, `VIP9000_RAG_QUERY_CACHE`, default enabled
+- top-1 retrieved context by default, configurable with `VIP9000_RAG_TOP_K`
 
 Start it:
 
@@ -35,7 +36,7 @@ Open:
 http://<radxa-ip>:8080
 ```
 
-The app intentionally sends only the top 2 retrieved snippets to Qwen3, and only when the best retrieved chunk clears the relevance threshold. If no chunk looks relevant, it answers normally without KB citations. Larger prompts worked mechanically but were too slow on this board through Ollama. A representative NVMe query completed in about:
+The app intentionally sends only the top retrieved snippet to Qwen3 by default, and only when the best retrieved chunk clears the relevance threshold. If no chunk looks relevant, it answers normally without KB citations. Raise `VIP9000_RAG_TOP_K` for harder questions that need more context. Larger prompts worked mechanically but were slower on this board. A representative earlier Ollama NVMe query completed in about:
 
 ```text
 embedding_s=19.2
@@ -90,4 +91,13 @@ embedding_cache_hit=true
 embedding_s=0.0007
 llm_s=9.65
 total_s=9.66
+```
+
+After trimming the default retrieved context to top-1, a cached NVMe query through the llama.cpp PowerVR provider measured:
+
+```text
+embedding_cache_hit=true
+embedding_s=0.0007
+llm_s=11.18
+total_s=11.19
 ```
