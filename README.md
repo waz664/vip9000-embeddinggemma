@@ -67,15 +67,19 @@ Larger retrieval A/B eval, official CPU TFLite reference vs corrected NPU:
 
 The retrieval result meets the current quality target: query cosine mean >= `0.93`, query cosine min >= `0.90`, overlap@5 >= `0.85`, and reference-top MRR >= `0.70`.
 
-The WebUI includes a persistent exact-query embedding cache and now defaults to sending only the top retrieved chunk to Qwen. On this board, a repeated NVMe RAG query dropped from about `81 s` cold to about `11.2 s` with the query embedding cached and top-1 context.
+The WebUI includes a persistent exact-query embedding cache, exact-response cache, and a small hybrid retrieval boost for hardware spec terms. The fixed WebUI eval suite now passes `10/10` Radxa Cubie A7S questions. With both caches hot, the median eval response time was about `0.004 s`; new questions still pay the NPU embedding and Qwen generation costs.
 
 The embedding runner also caches tokenizer and dense-tail objects inside long-running processes to avoid repeated Python-side model-file loads.
+
+An experimental persistent VIPLite runner is available in `tools/`. It loads `network_binary.nb` once and can serve repeated embedding requests over stdin/stdout. The WebUI launcher automatically uses it when `tools/persistent_viplite_runner` has been built.
 
 Additional utilities:
 
 ```text
 scripts/embed_batch.py
 scripts/benchmark_llama_server.py
+scripts/evaluate_webui_rag.py
+tools/build_persistent_viplite_runner.sh
 ```
 
 The batch embedding helper supports a persistent embedding cache with `EMBEDDINGGEMMA_EMBED_CACHE_DIR`.
@@ -157,6 +161,14 @@ The script uses:
 ```bash
 LD_LIBRARY_PATH=~/ai-sdk/viplite-tina/lib/aarch64-none-linux-gnu/v2.0
 ~/ai-sdk/examples/vpm_run/vpm_run
+```
+
+Optional persistent VIPLite runner:
+
+```bash
+bash tools/build_persistent_viplite_runner.sh
+EMBEDDINGGEMMA_VIP_RUNNER="$PWD/tools/persistent_viplite_runner" \
+  ./embed_text_bias_hidden_npu.py "does Cubie A7S support NVMe storage?"
 ```
 
 ## Run The RAG Demo

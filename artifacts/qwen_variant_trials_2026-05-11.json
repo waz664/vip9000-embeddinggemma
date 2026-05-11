@@ -1,0 +1,44 @@
+{
+  "date_utc": "2026-05-11",
+  "host": "Radxa Cubie A7S / Allwinner A733",
+  "prompt": "What is NVMe? Answer in one short sentence.",
+  "settings": {
+    "ctx": 512,
+    "batch": 8,
+    "ubatch": 8,
+    "kv_offload": false,
+    "flash_attention": false,
+    "cpu_affinity": "6,7"
+  },
+  "trials": [
+    {
+      "model": "Qwen3-0.6B-Q4_0.gguf",
+      "mode": "Vulkan -ngl 2",
+      "result": "failed",
+      "notes": "PowerVR Vulkan pipeline creation failed repeatedly for mul_mat_vec_q4_0_f32_f32; process stalled and was killed."
+    },
+    {
+      "model": "Qwen3-0.6B-Q4_0.gguf",
+      "mode": "CPU -ngl 0",
+      "result": "completed",
+      "prompt_tokens_per_second": 4.52,
+      "generation_tokens_per_second": 3.45,
+      "prompt_eval_ms": 4206.64,
+      "eval_ms": 6676.32,
+      "total_ms": 11223.16,
+      "host_memory_mib": 418
+    },
+    {
+      "model": "Qwen3-0.6B-Q8_0.gguf",
+      "mode": "CPU -ngl 0",
+      "result": "completed",
+      "prompt_tokens_per_second": 5.03,
+      "generation_tokens_per_second": 4.03,
+      "prompt_eval_ms": 3774.85,
+      "eval_ms": 5705.42,
+      "total_ms": 9772.39,
+      "host_memory_mib": 664
+    }
+  ],
+  "conclusion": "Q8_0 CPU was faster than Q4_0 CPU for this short prompt on this build. Q4_0 Vulkan is not safe on the current PowerVR stack because the quantized matvec pipeline does not compile. The service should stay on F16 with conservative -ngl 2 unless quantized Vulkan shaders are fixed."
+}

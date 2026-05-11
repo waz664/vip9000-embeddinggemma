@@ -1,0 +1,254 @@
+{
+  "cases": 10,
+  "passed": 10,
+  "pass_rate": 1.0,
+  "median_total_s": 0.005770192539785057,
+  "results": [
+    {
+      "id": "nvme",
+      "query": "Does the Radxa Cubie A7S support NVMe storage?",
+      "passed": true,
+      "used_kb": true,
+      "source_ok": true,
+      "keywords_ok": true,
+      "keyword_hits": [
+        "nvme",
+        "pcie"
+      ],
+      "expected_keywords": [
+        "nvme",
+        "pcie"
+      ],
+      "top_url": "https://docs.radxa.com/en/cubie/a7s",
+      "top_cosine": 0.65501469373703,
+      "wall_s": 10.497874894994311,
+      "embedding_s": 0.0007327530183829367,
+      "llm_s": 10.470748938038014,
+      "total_s": 10.482388866017573,
+      "embedding_cache_hit": true,
+      "response_cache_hit": false,
+      "answer": "Yes, the Radxa Cubie A7S supports NVMe storage. [1]"
+    },
+    {
+      "id": "npu",
+      "query": "How much NPU performance does the Cubie A7S advertise?",
+      "passed": true,
+      "used_kb": true,
+      "source_ok": true,
+      "keywords_ok": true,
+      "keyword_hits": [
+        "npu",
+        "tops"
+      ],
+      "expected_keywords": [
+        "npu",
+        "tops"
+      ],
+      "top_url": "https://docs.radxa.com/en/cubie/a7s",
+      "top_cosine": 0.6539180278778076,
+      "wall_s": 0.009003373968880624,
+      "embedding_s": 0.0007302109734155238,
+      "llm_s": 0.00026600202545523643,
+      "total_s": 0.004125060047954321,
+      "embedding_cache_hit": true,
+      "response_cache_hit": true,
+      "answer": "The Cubie A7S advertises a 3 TOPS@INT8 NPU performance. [1]"
+    },
+    {
+      "id": "soc",
+      "query": "Which processor is used by the Cubie A7S?",
+      "passed": true,
+      "used_kb": true,
+      "source_ok": true,
+      "keywords_ok": true,
+      "keyword_hits": [
+        "allwinner",
+        "a733"
+      ],
+      "expected_keywords": [
+        "allwinner",
+        "a733"
+      ],
+      "top_url": "https://docs.radxa.com/en/cubie/a7s",
+      "top_cosine": 0.7175860404968262,
+      "wall_s": 17.754771319043357,
+      "embedding_s": 0.0006694610347039998,
+      "llm_s": 17.7441456039669,
+      "total_s": 17.749687671021093,
+      "embedding_cache_hit": true,
+      "response_cache_hit": false,
+      "answer": "The processor used by the Cubie A7S is the Allwinner A733 CPU, with a 2\u00d7 Cortex-A76 and 6\u00d7 Cortex-A55 cores. [1]"
+    },
+    {
+      "id": "cpu",
+      "query": "What CPU core layout does the Allwinner A733 use on the Cubie A7S?",
+      "passed": true,
+      "used_kb": true,
+      "source_ok": true,
+      "keywords_ok": true,
+      "keyword_hits": [
+        "cortex-a76",
+        "cortex-a55"
+      ],
+      "expected_keywords": [
+        "cortex-a76",
+        "cortex-a55"
+      ],
+      "top_url": "https://radxa.com/products/cubie/a7s/",
+      "top_cosine": 0.6217755675315857,
+      "wall_s": 0.008841707021929324,
+      "embedding_s": 0.0007545449770987034,
+      "llm_s": 0.00026208499912172556,
+      "total_s": 0.003898560011293739,
+      "embedding_cache_hit": true,
+      "response_cache_hit": true,
+      "answer": "The Allwinner A733 uses an octa-core CPU [1]."
+    },
+    {
+      "id": "memory",
+      "query": "What type of memory is used on the Cubie A7S?",
+      "passed": true,
+      "used_kb": true,
+      "source_ok": true,
+      "keywords_ok": true,
+      "keyword_hits": [
+        "lpddr5"
+      ],
+      "expected_keywords": [
+        "lpddr5"
+      ],
+      "top_url": "https://docs.radxa.com/en/cubie/a7s",
+      "top_cosine": 0.5812602043151855,
+      "wall_s": 8.346379790978972,
+      "embedding_s": 0.0006349189789034426,
+      "llm_s": 8.335769158031326,
+      "total_s": 8.341306184011046,
+      "embedding_cache_hit": true,
+      "response_cache_hit": false,
+      "answer": "The Cubie A7S uses LPDDR5 memory. [1]"
+    },
+    {
+      "id": "ethernet",
+      "query": "Does the Cubie A7S include Ethernet?",
+      "passed": true,
+      "used_kb": true,
+      "source_ok": true,
+      "keywords_ok": true,
+      "keyword_hits": [
+        "gigabit",
+        "ethernet"
+      ],
+      "expected_keywords": [
+        "gigabit",
+        "ethernet"
+      ],
+      "top_url": "https://docs.radxa.com/en/cubie/a7s",
+      "top_cosine": 0.6044155359268188,
+      "wall_s": 0.008814039989374578,
+      "embedding_s": 0.0006931700045242906,
+      "llm_s": 0.00027279299683868885,
+      "total_s": 0.004096060001756996,
+      "embedding_cache_hit": true,
+      "response_cache_hit": true,
+      "answer": "Yes, the Cubie A7S includes Gigabit Ethernet for connectivity. [1]"
+    },
+    {
+      "id": "wireless",
+      "query": "What wireless connectivity does the Cubie A7S provide?",
+      "passed": true,
+      "used_kb": true,
+      "source_ok": true,
+      "keywords_ok": true,
+      "keyword_hits": [
+        "wi-fi",
+        "bluetooth"
+      ],
+      "expected_keywords": [
+        "wi-fi",
+        "bluetooth"
+      ],
+      "top_url": "https://docs.radxa.com/en/cubie/a7s",
+      "top_cosine": 0.614051342010498,
+      "wall_s": 0.0085948720225133,
+      "embedding_s": 0.0006829190533608198,
+      "llm_s": 0.0002626259811222553,
+      "total_s": 0.003781433973927051,
+      "embedding_cache_hit": true,
+      "response_cache_hit": true,
+      "answer": "The Cubie A7S provides Wi-Fi 6 and Bluetooth 5.4 for connectivity. [1]"
+    },
+    {
+      "id": "usb_display",
+      "query": "Can the Cubie A7S output display over USB-C?",
+      "passed": true,
+      "used_kb": true,
+      "source_ok": true,
+      "keywords_ok": true,
+      "keyword_hits": [
+        "usb-c",
+        "displayport"
+      ],
+      "expected_keywords": [
+        "usb-c",
+        "displayport"
+      ],
+      "top_url": "https://docs.radxa.com/en/cubie/a7s",
+      "top_cosine": 0.6530986428260803,
+      "wall_s": 9.513282029016409,
+      "embedding_s": 0.0006500869640149176,
+      "llm_s": 9.501583934004884,
+      "total_s": 9.507488377974369,
+      "embedding_cache_hit": true,
+      "response_cache_hit": false,
+      "answer": "Yes, the Cubie A7S supports USB-C for display output. [1]"
+    },
+    {
+      "id": "video_decode",
+      "query": "What video decode capability is listed for Cubie A7S?",
+      "passed": true,
+      "used_kb": true,
+      "source_ok": true,
+      "keywords_ok": true,
+      "keyword_hits": [
+        "decode"
+      ],
+      "expected_keywords": [
+        "decode"
+      ],
+      "top_url": "https://docs.radxa.com/en/cubie/a7s",
+      "top_cosine": 0.5762672424316406,
+      "wall_s": 0.01284051698166877,
+      "embedding_s": 0.0012856299872510135,
+      "llm_s": 0.00044683500891551375,
+      "total_s": 0.007415325031615794,
+      "embedding_cache_hit": true,
+      "response_cache_hit": true,
+      "answer": "The Cubie A7S supports 4K video encode/decode [1]."
+    },
+    {
+      "id": "board_size",
+      "query": "What is the board size of the Radxa Cubie A7S?",
+      "passed": true,
+      "used_kb": true,
+      "source_ok": true,
+      "keywords_ok": true,
+      "keyword_hits": [
+        "51",
+        "mm"
+      ],
+      "expected_keywords": [
+        "51",
+        "mm"
+      ],
+      "top_url": "https://docs.radxa.com/en/cubie/a7s",
+      "top_cosine": 0.5890524983406067,
+      "wall_s": 0.008907206996809691,
+      "embedding_s": 0.0007575039635412395,
+      "llm_s": 0.00027333502657711506,
+      "total_s": 0.003935685032047331,
+      "embedding_cache_hit": true,
+      "response_cache_hit": true,
+      "answer": "The board size of the Radxa Cubie A7S is 51 \u00d7 51 mm. [1]"
+    }
+  ]
+}

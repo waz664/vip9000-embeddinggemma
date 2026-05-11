@@ -97,6 +97,73 @@ Validation on the same NVMe query:
 
 This is the largest current usability improvement for repeated or common questions. New questions still pay the NPU embedding cost.
 
+## WebUI Response Cache And Quality Eval
+
+The WebUI now also has an exact-response cache under:
+
+```text
+<runtime>/webui_work/response_cache/
+```
+
+It is enabled by default and can be disabled with:
+
+```bash
+VIP9000_RAG_RESPONSE_CACHE=0
+```
+
+The response cache key includes the query, index fingerprint, provider, model, retrieval settings, and ranked source chunk fingerprints. It invalidates when the index files or retrieved chunk text change.
+
+A fixed eval suite is included:
+
+```bash
+python3 scripts/evaluate_webui_rag.py
+```
+
+After adding hardware-term query expansion and lexical boosts for SoC, CPU, LPDDR5, NVMe, PCIe, USB-C, and DisplayPort, the local WebUI passed all Radxa Cubie A7S checks:
+
+```text
+cases=10
+passed=10
+pass_rate=100.00%
+```
+
+Cached repeat run:
+
+```text
+cases=10
+passed=10
+median_total_s=0.0038
+embedding_cache_hit=true
+response_cache_hit=true
+```
+
+This is not a substitute for a broad embedding benchmark, but it is now a repeatable gate for the end-to-end RAG behavior instead of ad hoc prompts.
+
+## Persistent VIPLite Runner
+
+The remaining uncached embedding cost is dominated by the VIPLite network run. A prototype persistent runner is included:
+
+```bash
+bash tools/build_persistent_viplite_runner.sh
+```
+
+It loads `network_binary.nb` once and accepts input/output tensor paths over stdin. Validation against `vpm_run`:
+
+```text
+output shape: 98304 float32 values
+max_abs_diff=0.0
+cosine=0.99999988
+```
+
+Local timing through the Python embedding wrapper with `EMBEDDINGGEMMA_VIP_RUNNER`:
+
+```text
+first uncached call:  npu_s=17.62 total_s=18.30
+second uncached call: npu_s=16.76 total_s=16.77
+```
+
+The WebUI launcher automatically uses `tools/persistent_viplite_runner` when it has been built. This is a modest but real improvement for new, uncached questions, and it is the right foundation for future batching.
+
 ## Prompt Context Trim
 
 The WebUI now defaults to:
@@ -242,6 +309,18 @@ token_s=0.000308 inputs_s=0.005333 npu_s=18.171834 tail_s=0.006416 total_s=18.18
 ```
 
 The NPU runner call dominates. Python-side caching helps, but the main remaining embedding target is reducing or avoiding the `vpm_run` execution cost.
+
+## Qwen Quantized Variant Trials
+
+Local Qwen3 0.6B GGUF variants were tested with `llama-completion`, `-c 512 -b 8 -ub 8`, CPU KV cache, flash attention off, and A76 affinity:
+
+| Model | Mode | Result | Prompt tok/s | Generate tok/s | Total |
+| --- | --- | --- | ---: | ---: | ---: |
+| Q4_0 | Vulkan `-ngl 2` | failed: PowerVR rejected `mul_mat_vec_q4_0_f32_f32` pipeline creation | n/a | n/a | n/a |
+| Q4_0 | CPU `-ngl 0` | completed | 4.52 | 3.45 | 11.22 s |
+| Q8_0 | CPU `-ngl 0` | completed | 5.03 | 4.03 | 9.77 s |
+
+For this board/build, Q8_0 CPU was faster than Q4_0 CPU on the short prompt, and Q4_0 Vulkan is unsafe until the quantized PowerVR shader path is fixed. The service remains on the F16 model with conservative `-ngl 2`.
 
 ## GPU Layer Count Trial
 

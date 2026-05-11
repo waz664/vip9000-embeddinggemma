@@ -26,6 +26,7 @@ TOP_K = int(os.environ.get("VIP9000_RAG_TOP_K", "1"))
 CONTEXT_CHARS = int(os.environ.get("VIP9000_RAG_CONTEXT_CHARS", "450"))
 KB_MIN_COSINE = float(os.environ.get("VIP9000_RAG_MIN_COSINE", "0.35"))
 QUERY_CACHE = os.environ.get("VIP9000_RAG_QUERY_CACHE", "1") != "0"
+RESPONSE_CACHE = os.environ.get("VIP9000_RAG_RESPONSE_CACHE", "1") != "0"
 PORT = int(os.environ.get("VIP9000_RAG_PORT", "8080"))
 
 sys.path.insert(0, str(MODEL_DIR))
@@ -49,6 +50,42 @@ def query_cache_path(query: str) -> Path:
     return WORK_DIR / "query_cache" / f"{key}.npy"
 
 
+def index_fingerprint() -> str:
+    h = hashlib.sha256()
+    for name in ("chunks.json", "embeddings.npy"):
+        path = RAG_DIR / name
+        stat = path.stat()
+        h.update(name.encode("utf-8"))
+        h.update(str(stat.st_mtime_ns).encode("ascii"))
+        h.update(str(stat.st_size).encode("ascii"))
+    return h.hexdigest()
+
+
+def response_cache_path(query: str, hits: list[dict], used_kb: bool) -> Path:
+    sources = [
+        {
+            "rank": hit.get("rank"),
+            "url": hit.get("url"),
+            "cosine": round(float(hit.get("cosine", 0.0)), 6),
+            "text_sha256": hashlib.sha256(str(hit.get("text", "")).encode("utf-8")).hexdigest(),
+        }
+        for hit in hits
+    ] if used_kb else []
+    payload = {
+        "query": query.strip(),
+        "index": index_fingerprint(),
+        "provider": LLM_PROVIDER,
+        "model": LLAMA_CPP_MODEL if LLM_PROVIDER == "llama_cpp" else OLLAMA_MODEL,
+        "top_k": TOP_K,
+        "context_chars": CONTEXT_CHARS,
+        "min_cosine": KB_MIN_COSINE,
+        "used_kb": used_kb,
+        "sources": sources,
+    }
+    key = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+    return WORK_DIR / "response_cache" / f"{key}.json"
+
+
 def embed_query(query: str) -> tuple[np.ndarray, float, bool]:
     cache_path = query_cache_path(query)
     if QUERY_CACHE and cache_path.exists():
@@ -68,10 +105,51 @@ def embed_query(query: str) -> tuple[np.ndarray, float, bool]:
     return q, elapsed, False
 
 
+def retrieval_query(query: str) -> str:
+    expanded = query
+    lowered = query.lower()
+    additions = []
+    if "processor" in lowered and "soc" not in lowered:
+        additions.extend(["SoC", "CPU"])
+    if "storage" in lowered and "nvme" not in lowered:
+        additions.extend(["NVMe", "PCIe"])
+    if "memory" in lowered and "lpddr" not in lowered:
+        additions.extend(["RAM", "LPDDR5"])
+    if "display" in lowered and "usb-c" not in lowered:
+        additions.extend(["USB-C", "DisplayPort"])
+    if additions:
+        expanded = f"{query} {' '.join(additions)}"
+    return expanded
+
+
+def lexical_boosts(query: str, chunks: list[dict]) -> np.ndarray:
+    lowered = query.lower()
+    terms = []
+    if "memory" in lowered or "ram" in lowered or "lpddr" in lowered:
+        terms.extend(["lpddr", "memory"])
+    if "processor" in lowered or "soc" in lowered:
+        terms.extend(["allwinner", "a733", "soc"])
+    if "storage" in lowered or "nvme" in lowered:
+        terms.extend(["nvme", "pcie"])
+    if "display" in lowered or "usb-c" in lowered:
+        terms.extend(["displayport", "usb-c"])
+
+    boosts = np.zeros(len(chunks), dtype=np.float32)
+    if not terms:
+        return boosts
+    for i, chunk in enumerate(chunks):
+        text = f"{chunk.get('url', '')} {chunk.get('text', '')}".lower()
+        hits = sum(1 for term in terms if term in text)
+        if hits:
+            boosts[i] = min(0.03 * hits, 0.09)
+    return boosts
+
+
 def retrieve(query: str) -> tuple[list[dict], float, bool]:
     chunks, matrix = load_index()
-    q, embed_s, cache_hit = embed_query(query)
-    scores = matrix @ q
+    expanded_query = retrieval_query(query)
+    q, embed_s, cache_hit = embed_query(expanded_query)
+    scores = (matrix @ q) + lexical_boosts(expanded_query, chunks)
     order = np.argsort(scores)[::-1][:TOP_K]
     probs = softmax(scores[order] * 20.0)
     hits = []
@@ -160,6 +238,41 @@ def llm_answer(query: str, hits: list[dict]) -> tuple[str, float, bool, str]:
     return result.get("message", {}).get("content", "").strip(), elapsed, use_kb, OLLAMA_MODEL
 
 
+def cached_llm_answer(query: str, hits: list[dict]) -> tuple[str, float, bool, str, bool]:
+    _, use_kb = build_messages(query, hits)
+    cache_path = response_cache_path(query, hits, use_kb)
+    if RESPONSE_CACHE and cache_path.exists():
+        t0 = time.perf_counter()
+        cached = json.loads(cache_path.read_text(encoding="utf-8"))
+        return (
+            str(cached.get("answer", "")).strip(),
+            time.perf_counter() - t0,
+            bool(cached.get("used_kb", use_kb)),
+            str(cached.get("model", LLAMA_CPP_MODEL if LLM_PROVIDER == "llama_cpp" else OLLAMA_MODEL)),
+            True,
+        )
+
+    answer, elapsed, used_kb, model_name = llm_answer(query, hits)
+    if RESPONSE_CACHE:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = cache_path.with_suffix(".tmp")
+        tmp_path.write_text(
+            json.dumps(
+                {
+                    "answer": answer,
+                    "used_kb": used_kb,
+                    "model": model_name,
+                    "provider": LLM_PROVIDER,
+                    "created_at": time.time(),
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        tmp_path.replace(cache_path)
+    return answer, elapsed, used_kb, model_name, False
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args) -> None:
         print(f"{self.address_string()} - {fmt % args}", flush=True)
@@ -198,7 +311,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             t0 = time.perf_counter()
             hits, embed_s, embedding_cache_hit = retrieve(query)
-            answer, llm_s, used_kb, model_name = llm_answer(query, hits)
+            answer, llm_s, used_kb, model_name, response_cache_hit = cached_llm_answer(query, hits)
             self.send_json(
                 200,
                 {
@@ -213,6 +326,7 @@ class Handler(BaseHTTPRequestHandler):
                         "total_s": time.perf_counter() - t0,
                     },
                     "embedding_cache_hit": embedding_cache_hit,
+                    "response_cache_hit": response_cache_hit,
                     "model": model_name,
                     "provider": LLM_PROVIDER,
                 },

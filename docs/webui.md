@@ -21,6 +21,8 @@ It uses:
 - Python standard-library HTTP server, no Flask/FastAPI dependency
 - a relevance threshold, `VIP9000_RAG_MIN_COSINE`, default `0.35`
 - a persistent exact-query embedding cache, `VIP9000_RAG_QUERY_CACHE`, default enabled
+- a persistent exact-response cache, `VIP9000_RAG_RESPONSE_CACHE`, default enabled
+- a small hybrid retrieval boost for hardware spec terms such as SoC, LPDDR5, NVMe, PCIe, USB-C, and DisplayPort
 - top-1 retrieved context by default, configurable with `VIP9000_RAG_TOP_K`
 
 Start it:
@@ -51,6 +53,25 @@ Yes, the Cubie A7S supports NVMe storage. [1]
 ```
 
 This is a complete local RAG path, but the Qwen3 generation latency is high. For a more usable interactive demo, try `gemma3:270m` or reduce retrieved context further. For a quality-oriented demo, keep `qwen3:0.6b` and accept the wait.
+
+## WebUI Eval
+
+Run the fixed Radxa Cubie A7S eval suite:
+
+```bash
+python3 scripts/evaluate_webui_rag.py
+```
+
+Latest local result after the hybrid retrieval and cache changes:
+
+```text
+cases=10
+passed=10
+pass_rate=100.00%
+cached median_total_s=0.0038
+```
+
+The uncached run is intentionally slower because new query wordings still execute the NPU embedding and Qwen generation paths. The cached eval confirms that exact repeated questions can bypass both the NPU embedding and LLM generation without changing the index or answer.
 
 ## llama.cpp PowerVR Provider
 
@@ -88,9 +109,20 @@ Repeated exact queries use the WebUI query embedding cache. A validated repeat q
 
 ```text
 embedding_cache_hit=true
+response_cache_hit=false
 embedding_s=0.0007
 llm_s=9.65
 total_s=9.66
+```
+
+With the response cache enabled, exact repeated questions can return without calling Qwen:
+
+```text
+embedding_cache_hit=true
+response_cache_hit=true
+embedding_s=0.0006
+llm_s=0.00
+total_s=0.0038 median over the 10-case eval
 ```
 
 After trimming the default retrieved context to top-1, a cached NVMe query through the llama.cpp PowerVR provider measured:

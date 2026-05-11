@@ -37,6 +37,7 @@ def main() -> int:
             f"llm={timing.get('llm_s', 0):.2f}s "
             f"total={timing.get('total_s', 0):.2f}s "
             f"embedding_cache_hit={result.get('embedding_cache_hit')} "
+            f"response_cache_hit={result.get('response_cache_hit')} "
             f"used_kb={result.get('used_kb')} "
             f"model={result.get('model')}"
         )

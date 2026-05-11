@@ -1,0 +1,10 @@
+{"id":"nvme","query":"Does the Radxa Cubie A7S support NVMe storage?","expected_source_contains":"cubie-a7s","expected_keywords":["nvme","pcie"]}
+{"id":"npu","query":"How much NPU performance does the Cubie A7S advertise?","expected_source_contains":"cubie-a7s","expected_keywords":["npu","tops"]}
+{"id":"soc","query":"Which processor is used by the Cubie A7S?","expected_source_contains":"cubie-a7s","expected_keywords":["allwinner","a733"]}
+{"id":"cpu","query":"What CPU core layout does the Allwinner A733 use on the Cubie A7S?","expected_source_contains":"cubie-a7s","expected_keywords":["cortex-a76","cortex-a55"]}
+{"id":"memory","query":"What type of memory is used on the Cubie A7S?","expected_source_contains":"cubie-a7s","expected_keywords":["lpddr5"]}
+{"id":"ethernet","query":"Does the Cubie A7S include Ethernet?","expected_source_contains":"cubie-a7s","expected_keywords":["gigabit","ethernet"]}
+{"id":"wireless","query":"What wireless connectivity does the Cubie A7S provide?","expected_source_contains":"cubie-a7s","expected_keywords":["wi-fi","bluetooth"]}
+{"id":"usb_display","query":"Can the Cubie A7S output display over USB-C?","expected_source_contains":"cubie-a7s","expected_keywords":["usb-c","displayport"]}
+{"id":"video_decode","query":"What video decode capability is listed for Cubie A7S?","expected_source_contains":"cubie-a7s","expected_keywords":["decode"]}
+{"id":"board_size","query":"What is the board size of the Radxa Cubie A7S?","expected_source_contains":"cubie-a7s","expected_keywords":["51","mm"]}

@@ -6,6 +6,7 @@ import math
 import os
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Optional
@@ -32,6 +33,8 @@ _SP = None
 _TOKEN_TABLE = None
 _DENSE_2 = None
 _DENSE_3 = None
+_VIP_RUNNER = None
+_VIP_RUNNER_LOCK = threading.Lock()
 
 
 def token_ids(text: str) -> list[int]:
@@ -122,6 +125,76 @@ def write_inputs(ids: list[int], embeds_output: Path, bias_output: Path) -> None
     bias.reshape(1, 1, 1, SEQ_LEN).tofile(bias_output)
 
 
+class PersistentVipRunner:
+    def __init__(self, executable: str) -> None:
+        env = os.environ.copy()
+        env["LD_LIBRARY_PATH"] = VIPLITE_LIB + os.pathsep + env.get("LD_LIBRARY_PATH", "")
+        self.process = subprocess.Popen(
+            [executable, "--serve", str(ROOT / "network_binary.nb")],
+            cwd=ROOT,
+            env=env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=None,
+            text=True,
+            bufsize=1,
+        )
+        assert self.stdout is not None
+        ready = ""
+        for _ in range(16):
+            ready = self.stdout.readline().strip()
+            if ready.startswith("ready "):
+                break
+        if not ready.startswith("ready "):
+            self.close()
+            raise RuntimeError(f"persistent VIPLite runner did not become ready: {ready!r}")
+        self.lock = threading.Lock()
+
+    @property
+    def stdin(self):
+        return self.process.stdin
+
+    @property
+    def stdout(self):
+        return self.process.stdout
+
+    def run(self, embeds_path: Path, bias_path: Path, output_path: Path) -> None:
+        with self.lock:
+            if self.process.poll() is not None:
+                raise RuntimeError(f"persistent VIPLite runner exited: {self.process.returncode}")
+            assert self.stdin is not None
+            assert self.stdout is not None
+            self.stdin.write(f"{embeds_path} {bias_path} {output_path}\n")
+            self.stdin.flush()
+            status = self.stdout.readline().strip()
+            if status != "ok":
+                raise RuntimeError(f"persistent VIPLite runner failed: {status}")
+
+    def close(self) -> None:
+        if self.process.poll() is None:
+            try:
+                if self.stdin is not None:
+                    self.stdin.write("quit\n")
+                    self.stdin.flush()
+            except BrokenPipeError:
+                pass
+            try:
+                self.process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+
+
+def persistent_runner() -> Optional[PersistentVipRunner]:
+    global _VIP_RUNNER
+    executable = os.environ.get("EMBEDDINGGEMMA_VIP_RUNNER", "").strip()
+    if not executable:
+        return None
+    with _VIP_RUNNER_LOCK:
+        if _VIP_RUNNER is None or _VIP_RUNNER.process.poll() is not None:
+            _VIP_RUNNER = PersistentVipRunner(executable)
+        return _VIP_RUNNER
+
+
 def official_tail(hidden: np.ndarray, ids: list[int]) -> np.ndarray:
     mask = (np.asarray(ids, dtype=np.int32) != PAD_ID).astype(np.float32)
     pooled = (hidden.reshape(SEQ_LEN, HIDDEN) * mask[:, None]).sum(axis=0) / max(float(mask.sum()), 1.0)
@@ -168,14 +241,18 @@ def embed_text(text: str, work_dir: Path, stem: str = "query", verbose: bool = F
     env["LD_LIBRARY_PATH"] = VIPLITE_LIB + os.pathsep + env.get("LD_LIBRARY_PATH", "")
     stdout = None if verbose else subprocess.DEVNULL
     t0 = time.perf_counter()
-    subprocess.run(
-        [VPM_RUN, "-s", str(sample), "-l", "1", "-b", "0"],
-        cwd=work_dir,
-        env=env,
-        stdout=stdout,
-        stderr=subprocess.STDOUT,
-        check=True,
-    )
+    runner = persistent_runner()
+    if runner is not None:
+        runner.run(embeds_path, bias_path, raw_output)
+    else:
+        subprocess.run(
+            [VPM_RUN, "-s", str(sample), "-l", "1", "-b", "0"],
+            cwd=work_dir,
+            env=env,
+            stdout=stdout,
+            stderr=subprocess.STDOUT,
+            check=True,
+        )
     npu_s = time.perf_counter() - t0
 
     t0 = time.perf_counter()

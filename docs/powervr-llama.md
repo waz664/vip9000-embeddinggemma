@@ -169,3 +169,22 @@ After `0005`, auxiliary op families can be tested individually without enabling 
 | `RMS_NORM + SWIGLU` | pass | coherent | slower than default: `55.07 s` cold, `12.47 s` warm vs default service result `33.20 s` cold, `9.17 s` warm | off |
 
 The current conclusion is that the quality-first default should remain projection-matvec only. RMS_NORM and SWIGLU are useful as debug gates and may become useful if graph split/synchronization overhead is reduced, but they do not improve the present WebUI workload.
+
+## Quantized Model Trial
+
+The local Q4/Q8 GGUF files were tested as a possible way to reduce CPU-side latency:
+
+```text
+Qwen3-0.6B-Q4_0.gguf
+Qwen3-0.6B-Q8_0.gguf
+```
+
+Results on 2026-05-11:
+
+| Model | Mode | Result |
+| --- | --- | --- |
+| Q4_0 | Vulkan `-ngl 2` | failed; PowerVR rejected `mul_mat_vec_q4_0_f32_f32` compute pipeline creation and the process stalled |
+| Q4_0 | CPU `-ngl 0` | completed, but slower than Q8_0 for the short test prompt |
+| Q8_0 | CPU `-ngl 0` | completed, best quantized CPU result in this quick trial |
+
+The quantized Vulkan path is therefore not ready. A useful next low-level target would be a PowerVR-specific q8/q4 matvec shader equivalent to the F16 scalar shader, but it should be developed behind a debug gate and promoted only after full generation tests.
