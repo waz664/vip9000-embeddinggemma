@@ -1,5 +1,27 @@
 # Release Notes
 
+## v0.2.0
+
+- Added full-stack hobbyist quickstart for:
+  - VIP9000 EmbeddingGemma NPU runtime
+  - Radxa Cubie A7S vector index demo
+  - patched llama.cpp PowerVR Vulkan server
+  - RAG WebUI
+- Added experimental llama.cpp PowerVR patches through `0004`, using a quality-first Qwen F16 projection matvec path.
+- Added user/system systemd service installer:
+  - `vip9000-llama.service`
+  - `vip9000-rag-webui.service`
+- Added one-command full-stack installer:
+  - `install/full_stack_install.sh`
+- Added WebUI exact-query embedding cache.
+- Trimmed default RAG context to top-1 retrieved chunk for lower Qwen latency.
+- Added WebUI benchmark helper:
+  - `scripts/benchmark_webui.py`
+- Verified service-managed WebUI benchmark on Cubie A7S:
+  - first run: `33.18 s`, `embedding_cache_hit=False`
+  - repeated run: `9.17 s`, `embedding_cache_hit=True`
+- Documented CPU-only vs PowerVR hybrid benchmark results and current limitations.
+
 ## v0.1.1
 
 - Prebuilt runtime bundle now includes `tokenizer.model`.
