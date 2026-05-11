@@ -46,25 +46,28 @@ Current limits:
 - KV cache and flash attention are kept off for this path
 - `GGML_VK_POWERVR_FULL_OPS=1` can be used for debugging the broader generic Vulkan op set, but that path still corrupts Qwen generation on this driver
 
-Live server command used for the WebUI:
+Stable server command used for the WebUI:
 
 ```bash
 env GGML_VK_VISIBLE_DEVICES=0 LLAMA_VK_NO_OUTPUT_OFFLOAD=1 \
   ~/llama.cpp/build-vulkan/bin/llama-server \
   -m ~/llama.cpp/Qwen3-0.6B-F16-from-Q8.gguf \
   --host 0.0.0.0 --port 8081 \
-  -c 512 -b 8 -ub 8 -ngl 4 \
+  -c 512 -b 8 -ub 8 -ngl 2 \
   --no-kv-offload -fa off --reasoning off \
   --alias qwen3-0.6b-powervr \
-  -np 1 --no-cache-idle-slots
+  -np 1 --no-cache-idle-slots --no-warmup
 ```
 
-Observed WebUI request timing for a Radxa NVMe question:
+`llama-completion` has produced coherent output with `-ngl 4`. The long-running WebUI server is currently kept at `-ngl 2` because that setting survived model load and OpenAI-compatible chat requests repeatedly with a 512-token context.
+
+Observed WebUI request timing for a Radxa NVMe question with NPU embedding retrieval plus the llama.cpp provider:
 
 ```text
-embedding_s=19.0
-llm_s=67.0
-total_s=86.1
+answer="Yes, the Cubie A7S supports NVMe storage via PCIe 3.0 x1 expansion. [2]"
+embedding_s=18.99
+llm_s=63.03
+total_s=82.03
 provider=llama_cpp
 model=qwen3-0.6b-powervr
 ```

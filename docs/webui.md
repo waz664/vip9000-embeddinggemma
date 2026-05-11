@@ -68,4 +68,16 @@ VIP9000_RAG_LLAMA_CPP_URL=http://127.0.0.1:8081/v1/chat/completions \
 bash install/run_webui.sh
 ```
 
-This path uses `-ngl 2`, `-b 8`, `-ub 8`, CPU KV cache, and flash attention disabled. It is a GPU-offload milestone, not yet the recommended quality path.
+This path uses `-ngl 2`, `-c 512`, `-b 8`, `-ub 8`, CPU KV cache, flash attention disabled, `LLAMA_VK_NO_OUTPUT_OFFLOAD=1`, and the quality-first PowerVR matvec-only policy from patch `0004`.
+
+Latest local smoke result:
+
+```text
+query="Does the Cubie A7S support NVMe?"
+answer="Yes, the Cubie A7S supports NVMe storage via PCIe 3.0 x1 expansion. [2]"
+embedding_s=18.99
+llm_s=63.03
+total_s=82.03
+provider=llama_cpp
+model=qwen3-0.6b-powervr
+```
