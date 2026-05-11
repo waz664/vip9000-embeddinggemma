@@ -118,3 +118,14 @@ Validation on the NVMe query with the query embedding already cached:
 | top-1, 450 chars | warm prompt cache | 0.0007 s | 11.18 s | 11.19 s | correct, cited |
 
 For this small Qwen model, shorter retrieved context is a clear latency win. The default is therefore tuned for quick, source-backed answers rather than maximal recall.
+
+## Systemd-Managed Stack
+
+After installing the user services with `install/install_systemd_services.sh`, the same benchmark helper measured:
+
+```text
+run=1 wall=33.20s embedding=19.0452s llm=14.13s total=33.18s embedding_cache_hit=False
+run=2 wall=9.17s  embedding=0.0007s  llm=9.16s  total=9.17s  embedding_cache_hit=True
+```
+
+This is the current best end-to-end user experience: the first new question still pays the NPU embedding cost, while repeated exact questions return in about 9 seconds on this board.

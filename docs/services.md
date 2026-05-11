@@ -95,3 +95,20 @@ SKIP_LLAMA_BUILD=1 bash install/full_stack_install.sh
 INSTALL_SERVICES=0 bash install/full_stack_install.sh
 RUN_BENCHMARK=0 bash install/full_stack_install.sh
 ```
+
+## Verified Service-Managed Benchmark
+
+After installing user services on the development Cubie A7S:
+
+```bash
+python3 scripts/benchmark_webui.py --runs 2
+```
+
+Measured:
+
+```text
+run=1 wall=33.20s embedding=19.0452s llm=14.13s total=33.18s embedding_cache_hit=False
+run=2 wall=9.17s  embedding=0.0007s  llm=9.16s  total=9.17s  embedding_cache_hit=True
+```
+
+Both answers were correct and cited the Radxa docs. The second run demonstrates the WebUI exact-query embedding cache under systemd-managed services.

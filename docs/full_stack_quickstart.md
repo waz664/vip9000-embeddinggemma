@@ -256,6 +256,13 @@ Benchmark two runs, showing the cache effect:
 python3 scripts/benchmark_webui.py --runs 2
 ```
 
+Verified service-managed result on this board:
+
+```text
+run=1 total=33.18s embedding_cache_hit=False
+run=2 total=9.17s  embedding_cache_hit=True
+```
+
 Known local cold-server PowerVR result:
 
 ```text
