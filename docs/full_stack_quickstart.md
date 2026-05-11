@@ -261,6 +261,15 @@ For the latest CPU-only vs PowerVR comparison, see:
 docs/performance.md
 ```
 
+The WebUI caches exact query embeddings by default. Repeating the same query can skip the roughly 19 second NPU embedding step:
+
+```text
+first query:  embedding_cache_hit=false
+repeat query: embedding_cache_hit=true
+```
+
+Disable this with `VIP9000_RAG_QUERY_CACHE=0` when benchmarking uncached retrieval.
+
 ## 11. What The Current PowerVR Path Does
 
 The llama.cpp patches are intentionally conservative:

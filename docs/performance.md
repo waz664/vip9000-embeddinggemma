@@ -65,3 +65,28 @@ Optimization should focus on:
 4. preserving full generation quality as the main gate
 
 Do not use isolated `test-backend-ops` success alone as the quality gate. Earlier broad PowerVR enablement passed isolated op checks and still corrupted generation.
+
+## Query Embedding Cache
+
+The WebUI now has a persistent exact-query embedding cache under:
+
+```text
+<runtime>/webui_work/query_cache/
+```
+
+It is enabled by default and can be disabled with:
+
+```bash
+VIP9000_RAG_QUERY_CACHE=0
+```
+
+This does not change retrieval quality for repeated exact queries. It reuses the NPU-generated query vector and avoids launching the NPU runner again.
+
+Validation on the same NVMe query:
+
+| Path | Embedding Cache | Embedding | llama.cpp | Total | Answer |
+| --- | --- | ---: | ---: | ---: | --- |
+| PowerVR hybrid WebUI | miss | 19.05 s | 62.20 s | 81.26 s | correct, cited |
+| PowerVR hybrid WebUI | hit | 0.0007 s | 9.65 s | 9.66 s | correct, cited |
+
+This is the largest current usability improvement for repeated or common questions. New questions still pay the NPU embedding cost.

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import hashlib
 import math
 import os
 import sys
@@ -23,6 +24,7 @@ LLAMA_CPP_URL = os.environ.get("VIP9000_RAG_LLAMA_CPP_URL", "http://127.0.0.1:80
 LLAMA_CPP_MODEL = os.environ.get("VIP9000_RAG_LLAMA_CPP_MODEL", "qwen3-0.6b-powervr")
 TOP_K = 2
 KB_MIN_COSINE = float(os.environ.get("VIP9000_RAG_MIN_COSINE", "0.35"))
+QUERY_CACHE = os.environ.get("VIP9000_RAG_QUERY_CACHE", "1") != "0"
 PORT = int(os.environ.get("VIP9000_RAG_PORT", "8080"))
 
 sys.path.insert(0, str(MODEL_DIR))
@@ -41,11 +43,33 @@ def softmax(x: np.ndarray) -> np.ndarray:
     return exp / np.sum(exp)
 
 
-def retrieve(query: str) -> tuple[list[dict], float]:
-    chunks, matrix = load_index()
+def query_cache_path(query: str) -> Path:
+    key = hashlib.sha256(query.strip().encode("utf-8")).hexdigest()
+    return WORK_DIR / "query_cache" / f"{key}.npy"
+
+
+def embed_query(query: str) -> tuple[np.ndarray, float, bool]:
+    cache_path = query_cache_path(query)
+    if QUERY_CACHE and cache_path.exists():
+        t0 = time.perf_counter()
+        return np.load(cache_path), time.perf_counter() - t0, True
+
     t0 = time.perf_counter()
     q = embed_text(query, WORK_DIR, "query", verbose=False)
-    embed_s = time.perf_counter() - t0
+    elapsed = time.perf_counter() - t0
+
+    if QUERY_CACHE:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = cache_path.with_suffix(".tmp.npy")
+        np.save(tmp_path, q)
+        tmp_path.replace(cache_path)
+
+    return q, elapsed, False
+
+
+def retrieve(query: str) -> tuple[list[dict], float, bool]:
+    chunks, matrix = load_index()
+    q, embed_s, cache_hit = embed_query(query)
     scores = matrix @ q
     order = np.argsort(scores)[::-1][:TOP_K]
     probs = softmax(scores[order] * 20.0)
@@ -61,7 +85,7 @@ def retrieve(query: str) -> tuple[list[dict], float]:
                 "text": " ".join(chunk["text"].split()),
             }
         )
-    return hits, embed_s
+    return hits, embed_s, cache_hit
 
 
 def build_messages(query: str, hits: list[dict]) -> tuple[list[dict], bool]:
@@ -172,7 +196,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(400, {"error": "query is required"})
                 return
             t0 = time.perf_counter()
-            hits, embed_s = retrieve(query)
+            hits, embed_s, embedding_cache_hit = retrieve(query)
             answer, llm_s, used_kb, model_name = llm_answer(query, hits)
             self.send_json(
                 200,
@@ -187,6 +211,7 @@ class Handler(BaseHTTPRequestHandler):
                         "llm_s": llm_s,
                         "total_s": time.perf_counter() - t0,
                     },
+                    "embedding_cache_hit": embedding_cache_hit,
                     "model": model_name,
                     "provider": LLM_PROVIDER,
                 },

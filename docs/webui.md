@@ -20,6 +20,7 @@ It uses:
 - Ollama model `qwen3:0.6b` by default, or a local llama.cpp server
 - Python standard-library HTTP server, no Flask/FastAPI dependency
 - a relevance threshold, `VIP9000_RAG_MIN_COSINE`, default `0.35`
+- a persistent exact-query embedding cache, `VIP9000_RAG_QUERY_CACHE`, default enabled
 
 Start it:
 
@@ -80,4 +81,13 @@ llm_s=63.03
 total_s=82.03
 provider=llama_cpp
 model=qwen3-0.6b-powervr
+```
+
+Repeated exact queries use the WebUI query embedding cache. A validated repeat query skipped the NPU embedding step and completed in `9.66 s` total:
+
+```text
+embedding_cache_hit=true
+embedding_s=0.0007
+llm_s=9.65
+total_s=9.66
 ```
