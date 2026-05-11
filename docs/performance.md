@@ -209,3 +209,20 @@ Higher offload counts were retested with the current quality-first path:
 | `-ngl 4` | 90 MiB | 31 | 107.87 s | 20.81 s | slower |
 
 Generation quality stayed coherent, but the additional graph splits dominate. Keep `GPU_LAYERS=2` for the WebUI service until the Vulkan scheduler/synchronization overhead is reduced.
+
+## Context Length Floor
+
+Reducing the top-1 snippet from 450 characters to 300 characters was tested:
+
+```text
+run=1 wall=44.26s embedding=18.8417s llm=25.40s total=44.24s
+run=2 wall=5.66s  embedding=0.0008s  llm=5.65s  total=5.65s
+```
+
+It was faster, but it produced a wrong answer for the NVMe query:
+
+```text
+The Cubie A7S does not support NVMe. [1]
+```
+
+So `VIP9000_RAG_CONTEXT_CHARS=450` remains the default quality floor for this demo index.
