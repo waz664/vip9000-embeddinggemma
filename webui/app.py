@@ -28,8 +28,9 @@ OLLAMA_MODEL = "qwen3:0.6b"
 LLM_PROVIDER = os.environ.get("VIP9000_RAG_LLM_PROVIDER", "ollama").strip().lower()
 LLAMA_CPP_URL = os.environ.get("VIP9000_RAG_LLAMA_CPP_URL", "http://127.0.0.1:8081/v1/chat/completions")
 LLAMA_CPP_MODEL = os.environ.get("VIP9000_RAG_LLAMA_CPP_MODEL", "qwen3-0.6b-powervr")
-TOP_K = int(os.environ.get("VIP9000_RAG_TOP_K", "1"))
+TOP_K = int(os.environ.get("VIP9000_RAG_TOP_K", "3"))
 CONTEXT_CHARS = int(os.environ.get("VIP9000_RAG_CONTEXT_CHARS", "1000"))
+MAX_TOKENS = int(os.environ.get("VIP9000_RAG_MAX_TOKENS", "140"))
 KB_MIN_COSINE = float(os.environ.get("VIP9000_RAG_MIN_COSINE", "0.35"))
 QUERY_CACHE = os.environ.get("VIP9000_RAG_QUERY_CACHE", "1") != "0"
 RESPONSE_CACHE = os.environ.get("VIP9000_RAG_RESPONSE_CACHE", "1") != "0"
@@ -359,6 +360,18 @@ def retrieve(query: str) -> tuple[list[dict], float, bool]:
     return hits, embed_s, cache_hit
 
 
+def extracted_fields(query: str, hits: list[dict]) -> list[str]:
+    lowered = query.lower()
+    fields = []
+    if "engine" in lowered or "powertrain" in lowered:
+        for hit in hits:
+            text = hit.get("text", "")
+            match = re.search(r"(?:Powertrain\s+)?Engine\s+(.+?)(?:\s+Transmission\s+|$)", text, flags=re.IGNORECASE)
+            if match:
+                fields.append(f"[{hit['rank']}] Engine: {match.group(1).strip()}")
+    return fields
+
+
 def build_messages(query: str, hits: list[dict], web_hits: Optional[list[dict]] = None) -> tuple[list[dict], bool]:
     use_kb = bool(hits and hits[0]["cosine"] >= KB_MIN_COSINE)
     web_hits = web_hits or []
@@ -369,9 +382,14 @@ def build_messages(query: str, hits: list[dict], web_hits: Optional[list[dict]] 
         context_parts.extend(
             f"[W{hit['rank']}] Web Source: {hit['url']}\n{hit['title']}" for hit in web_hits
         )
+        extracted = extracted_fields(query, hits)
+        if extracted:
+            context_parts.insert(0, "Relevant extracted fields:\n" + "\n".join(extracted))
         context = "\n\n".join(context_parts)
         system = (
             "Answer using only the retrieved context and web search results. "
+            "Focus only on the user's question. If a retrieved passage contains a labeled field "
+            "that matches the question, extract that field and ignore adjacent unrelated fields. "
             "Be concise. Cite KB sources with bracket numbers like [1] and web sources like [W1]."
         )
         prompt = f"Retrieved context:\n{context}\n\nQuestion: {query}"
@@ -421,7 +439,7 @@ def llm_answer(query: str, hits: list[dict], web_hits: Optional[list[dict]] = No
             "messages": messages,
             "stream": False,
             "temperature": 0.2,
-            "max_tokens": 80,
+            "max_tokens": MAX_TOKENS,
         }
         result, elapsed = post_json(LLAMA_CPP_URL, payload)
         content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -443,7 +461,7 @@ def llm_answer(query: str, hits: list[dict], web_hits: Optional[list[dict]] = No
         "options": {
             "temperature": 0.2,
             "num_ctx": 1024,
-            "num_predict": 60,
+            "num_predict": MAX_TOKENS,
             "num_thread": 4,
         },
     }

@@ -8,12 +8,13 @@ MODEL="${MODEL:-$LLAMA_CPP_DIR/Qwen3-0.6B-F16-from-Q8.gguf}"
 SCOPE="${SCOPE:-user}"
 WEBUI_PORT="${WEBUI_PORT:-8080}"
 LLAMA_PORT="${LLAMA_PORT:-8081}"
-CTX_SIZE="${CTX_SIZE:-512}"
+CTX_SIZE="${CTX_SIZE:-1024}"
 GPU_LAYERS="${GPU_LAYERS:-2}"
 BATCH_SIZE="${BATCH_SIZE:-8}"
 UBATCH_SIZE="${UBATCH_SIZE:-8}"
-TOP_K="${VIP9000_RAG_TOP_K:-1}"
+TOP_K="${VIP9000_RAG_TOP_K:-3}"
 CONTEXT_CHARS="${VIP9000_RAG_CONTEXT_CHARS:-1000}"
+MAX_TOKENS="${VIP9000_RAG_MAX_TOKENS:-140}"
 
 write_user_units() {
   local unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
@@ -60,6 +61,7 @@ Environment=VIP9000_RAG_LLM_PROVIDER=llama_cpp
 Environment=VIP9000_RAG_LLAMA_CPP_URL=http://127.0.0.1:$LLAMA_PORT/v1/chat/completions
 Environment=VIP9000_RAG_TOP_K=$TOP_K
 Environment=VIP9000_RAG_CONTEXT_CHARS=$CONTEXT_CHARS
+Environment=VIP9000_RAG_MAX_TOKENS=$MAX_TOKENS
 ExecStart=$REPO_DIR/install/run_webui.sh
 Restart=on-failure
 RestartSec=5
@@ -126,6 +128,7 @@ Environment=VIP9000_RAG_LLM_PROVIDER=llama_cpp
 Environment=VIP9000_RAG_LLAMA_CPP_URL=http://127.0.0.1:$LLAMA_PORT/v1/chat/completions
 Environment=VIP9000_RAG_TOP_K=$TOP_K
 Environment=VIP9000_RAG_CONTEXT_CHARS=$CONTEXT_CHARS
+Environment=VIP9000_RAG_MAX_TOKENS=$MAX_TOKENS
 ExecStart=$REPO_DIR/install/run_webui.sh
 Restart=on-failure
 RestartSec=5

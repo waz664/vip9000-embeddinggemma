@@ -23,7 +23,8 @@ It uses:
 - a persistent exact-query embedding cache, `VIP9000_RAG_QUERY_CACHE`, default enabled
 - a persistent exact-response cache, `VIP9000_RAG_RESPONSE_CACHE`, default enabled
 - a small hybrid retrieval boost for hardware spec terms such as SoC, LPDDR5, NVMe, PCIe, USB-C, and DisplayPort
-- top-1 retrieved context by default, configurable with `VIP9000_RAG_TOP_K`
+- top-3 retrieved context by default, configurable with `VIP9000_RAG_TOP_K`
+- a `VIP9000_RAG_MAX_TOKENS` answer budget, default `140`, so multi-part spec answers do not truncate early
 - cumulative runtime stats from `/api/status`, including request count and LLM token counts
 - URL/file knowledge ingestion from the sidebar
 - optional web search results for Qwen when the chat prompt enables web access
@@ -41,7 +42,7 @@ Open:
 http://<radxa-ip>:8080
 ```
 
-The app intentionally sends only the top retrieved snippet to Qwen3 by default, and only when the best retrieved chunk clears the relevance threshold. If no chunk looks relevant, it answers normally without KB citations. Raise `VIP9000_RAG_TOP_K` for harder questions that need more context. Larger prompts worked mechanically but were slower on this board. A representative earlier Ollama NVMe query completed in about:
+The app sends the top three retrieved snippets to Qwen3 by default, and only uses KB context when the best retrieved chunk clears the relevance threshold. It also highlights obvious labeled fields, such as `Engine`, before the raw chunks so small models are less likely to answer from adjacent infobox fields. If no chunk looks relevant, it answers normally without KB citations. Raise `VIP9000_RAG_TOP_K` for harder questions that need more context. Larger prompts worked mechanically but were slower on this board. A representative earlier Ollama NVMe query completed in about:
 
 ```text
 embedding_s=19.2
