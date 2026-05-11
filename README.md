@@ -18,6 +18,12 @@ For a complete hobbyist-level walkthrough, including the prebuilt NPU runtime, p
 docs/full_stack_quickstart.md
 ```
 
+For systemd service setup and the one-command installer, see:
+
+```text
+docs/services.md
+```
+
 ## Known Working Setup
 
 - Board: Radxa Cubie A7S

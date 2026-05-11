@@ -228,6 +228,20 @@ Open:
 http://<radxa-ip>:8080
 ```
 
+To install both the llama.cpp server and WebUI as systemd user services:
+
+```bash
+bash install/install_systemd_services.sh
+```
+
+For a single command that installs dependencies, runtime files, the index, the patched llama.cpp build, services, and a benchmark:
+
+```bash
+bash install/full_stack_install.sh
+```
+
+See `docs/services.md` for service management and configuration.
+
 API smoke test:
 
 ```bash
