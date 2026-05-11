@@ -165,3 +165,14 @@ run=2 total=9.17s
 ```
 
 Conclusion: do not enable RMS_NORM or SWIGLU by default yet. The extra GPU ops are quality-correct, but the additional graph splits and synchronization cost outweigh their compute savings.
+
+## A76 Pinning Trial
+
+Pinning `llama-server` to CPUs `6,7` and using two llama.cpp threads was tested as an OS-level tuning option:
+
+```text
+run=1 wall=57.31s embedding=19.0720s llm=38.22s total=57.29s embedding_cache_hit=False
+run=2 wall=8.19s  embedding=0.0007s  llm=8.18s  total=8.19s  embedding_cache_hit=True
+```
+
+This is a tradeoff, not a default improvement. Cached repeated queries improved slightly, but first/cold queries regressed badly compared with the default service-managed result.

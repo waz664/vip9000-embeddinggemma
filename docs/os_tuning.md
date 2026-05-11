@@ -43,3 +43,22 @@ cat /proc/sys/vm/swappiness
 ```
 
 Do not use `performance` if the board is thermally constrained or battery powered.
+
+## A76 Pinning Trial
+
+The faster cores on the tested board are CPUs `6,7`. A user-space trial pinned `llama-server` to those cores and limited llama.cpp to two threads:
+
+```bash
+taskset -c 6,7 llama-server ... --threads 2 --threads-batch 2
+```
+
+Measured through the WebUI:
+
+```text
+run=1 wall=57.31s embedding=19.0720s llm=38.22s total=57.29s embedding_cache_hit=False
+run=2 wall=8.19s  embedding=0.0007s  llm=8.18s  total=8.19s  embedding_cache_hit=True
+```
+
+This improves repeated cached queries slightly, but makes first/cold questions much slower than the default service setup. It is not the default.
+
+Use A76 pinning only if your workload is mostly repeated cached queries and you want to reserve the A55 cores for other tasks.
