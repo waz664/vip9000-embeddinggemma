@@ -236,7 +236,7 @@ curl -s http://127.0.0.1:8080/api/chat \
   -d '{"query":"Does the Cubie A7S support NVMe?"}'
 ```
 
-Known local result:
+Known local cold-server PowerVR result:
 
 ```text
 answer="Yes, the Cubie A7S supports NVMe storage via PCIe 3.0 x1 expansion. [2]"
@@ -254,6 +254,12 @@ total_s=31.2
 ```
 
 That faster number is plausible when the model server is warm, the answer is shorter, prompt cache helps, or less retrieved context is used.
+
+For the latest CPU-only vs PowerVR comparison, see:
+
+```text
+docs/performance.md
+```
 
 ## 11. What The Current PowerVR Path Does
 

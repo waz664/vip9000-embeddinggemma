@@ -183,6 +183,7 @@ See `docs/webui.md` for notes and measured timing.
 `patches/llama.cpp/` contains experimental llama.cpp Vulkan patches for the Cubie A7S PowerVR BXM GPU. The current milestone runs Qwen3 0.6B F16 projection matvecs on Vulkan0 while keeping the fragile attention/output/elementwise paths on CPU. With `LLAMA_VK_NO_OUTPUT_OFFLOAD=1`, `-b 8 -ub 8`, `--no-kv-offload`, and `-fa off`, the mixed CPU/PowerVR path now produces coherent text with several repeating layers offloaded.
 
 See `docs/powervr-llama.md` for the exact command and current limitations.
+See `docs/performance.md` for the latest CPU-only vs PowerVR WebUI timing.
 
 ## Export Flow
 
