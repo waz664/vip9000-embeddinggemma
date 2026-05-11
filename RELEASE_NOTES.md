@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.2.5
+
+- Added opt-in WebUI Think mode for Qwen3 requests.
+- Normal WebUI requests explicitly disable thinking so fast chat remains the default.
+- Think requests enable Qwen thinking, use a larger answer budget, and cap hidden reasoning so the model still has room for the final answer.
+- Updated the llama.cpp service defaults to `CTX_SIZE=4096` and `--reasoning auto`.
+- Added a reasoning-budget message so capped Think requests are pushed toward a final response.
+- Made the service-managed WebUI execute the repo copy of `webui/app.py`, avoiding stale installed code.
+- Refreshed README and docs so new users land on the current service-managed stack.
+
 ## v0.2.4
 
 - Made the WebUI viewport fixed with a sticky top status bar and chat auto-scroll after prompts/responses.

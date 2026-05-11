@@ -21,7 +21,7 @@ The WebUI path includes:
 
 ## 2026-05-11 WebUI CPU vs PowerVR Check
 
-Both llama.cpp servers used:
+This original CPU-vs-PowerVR comparison used a small context:
 
 ```text
 context: 512
@@ -31,6 +31,8 @@ KV cache: CPU
 flash attention: off
 warmup: disabled
 ```
+
+The service-managed WebUI now defaults to `context: 4096` so top-3 RAG context and the optional Think mode have enough room.
 
 CPU-only used `-ngl 0`.
 

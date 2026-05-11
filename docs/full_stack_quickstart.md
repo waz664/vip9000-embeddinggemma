@@ -189,7 +189,7 @@ Stable current defaults:
 ```text
 host: 0.0.0.0
 port: 8081
-context: 512
+context: 4096
 batch: 8
 ubatch: 8
 gpu layers: 2
@@ -346,14 +346,14 @@ If `llama-server` exits immediately when detached with `nohup`, use the `setsid 
 If WebUI returns a llama.cpp 400 error about context size, increase `CTX_SIZE` for the server:
 
 ```bash
-CTX_SIZE=768 bash install/run_llama_cpp_powervr_server.sh
+CTX_SIZE=4096 bash install/run_llama_cpp_powervr_server.sh
 ```
 
 If Qwen output becomes corrupt, return to the stable defaults:
 
 ```text
 GPU_LAYERS=2
-CTX_SIZE=2048
+CTX_SIZE=4096
 BATCH_SIZE=8
 UBATCH_SIZE=8
 LLAMA_VK_NO_OUTPUT_OFFLOAD=1

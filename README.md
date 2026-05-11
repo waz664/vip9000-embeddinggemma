@@ -1,6 +1,8 @@
-# EmbeddingGemma on Vivante VIP9000 NPU
+# VIP9000 NPU Embeddings + PowerVR Qwen on Radxa Cubie A7S
 
-This repository documents and packages a working EmbeddingGemma-300M embedding path for the Radxa Cubie A7S / Allwinner A733 Vivante VIP9000-series NPU.
+This repository documents and packages a working local AI stack for the Radxa Cubie A7S / Allwinner A733: EmbeddingGemma-300M retrieval on the Vivante VIP9000-series NPU, plus an experimental llama.cpp path that runs selected Qwen3 0.6B projection matvecs on the PowerVR BXM Vulkan GPU.
+
+The goal is a practical DIY starting point for edge RAG on this board. It is not a perfect production stack, but it includes prebuilt runtime packaging, install scripts, systemd services, a chat WebUI, URL/file knowledge ingestion, optional web search, Think-mode Qwen requests, benchmarks, and the PowerVR llama.cpp patches used during testing.
 
 The working deployment uses:
 
@@ -28,6 +30,12 @@ For optional dedicated-board CPU governor and swappiness tuning, see:
 
 ```text
 docs/os_tuning.md
+```
+
+For ready-to-post community announcement drafts and suggested GitHub topics, see:
+
+```text
+docs/community_outreach.md
 ```
 
 ## Known Working Setup
