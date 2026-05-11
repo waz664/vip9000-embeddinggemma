@@ -241,6 +241,7 @@ bash install/full_stack_install.sh
 ```
 
 See `docs/services.md` for service management and configuration.
+See `docs/os_tuning.md` for optional dedicated-board CPU governor and swappiness tuning.
 
 API smoke test:
 

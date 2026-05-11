@@ -24,6 +24,9 @@ fi
 echo "==> Running NPU smoke test"
 bash install/smoke_test.sh
 
+echo "==> Updating installed runtime code from repo"
+bash install/update_installed_runtime_code.sh
+
 echo "==> Building demo vector index"
 (cd "$INSTALL_DIR/rag_demo" && python3 ./build_index.py --max-chunks "${MAX_CHUNKS:-8}")
 

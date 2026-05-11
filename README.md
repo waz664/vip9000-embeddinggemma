@@ -24,6 +24,12 @@ For systemd service setup and the one-command installer, see:
 docs/services.md
 ```
 
+For optional dedicated-board CPU governor and swappiness tuning, see:
+
+```text
+docs/os_tuning.md
+```
+
 ## Known Working Setup
 
 - Board: Radxa Cubie A7S

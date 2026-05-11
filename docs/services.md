@@ -34,6 +34,13 @@ Restart after editing config:
 systemctl --user restart vip9000-llama.service vip9000-rag-webui.service
 ```
 
+After pulling repo updates, refresh the installed runtime copy used by the service:
+
+```bash
+bash install/update_installed_runtime_code.sh
+systemctl --user restart vip9000-rag-webui.service
+```
+
 If you want user services to start before login, enable linger once:
 
 ```bash
