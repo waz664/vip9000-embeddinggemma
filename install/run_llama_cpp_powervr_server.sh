@@ -16,7 +16,7 @@ cmd=(
   -m "$MODEL"
   --host "$HOST"
   --port "$PORT"
-  -c "${CTX_SIZE:-1024}"
+  -c "${CTX_SIZE:-2048}"
   -b "${BATCH_SIZE:-8}"
   -ub "${UBATCH_SIZE:-8}"
   -ngl "${GPU_LAYERS:-2}"

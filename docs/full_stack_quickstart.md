@@ -353,7 +353,7 @@ If Qwen output becomes corrupt, return to the stable defaults:
 
 ```text
 GPU_LAYERS=2
-CTX_SIZE=1024
+CTX_SIZE=2048
 BATCH_SIZE=8
 UBATCH_SIZE=8
 LLAMA_VK_NO_OUTPUT_OFFLOAD=1

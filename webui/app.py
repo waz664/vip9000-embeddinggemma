@@ -36,7 +36,7 @@ QUERY_CACHE = os.environ.get("VIP9000_RAG_QUERY_CACHE", "1") != "0"
 RESPONSE_CACHE = os.environ.get("VIP9000_RAG_RESPONSE_CACHE", "1") != "0"
 WEB_SEARCH = os.environ.get("VIP9000_RAG_WEB_SEARCH", "1") != "0"
 INGEST_MAX_PAGES = int(os.environ.get("VIP9000_RAG_INGEST_MAX_PAGES", "8"))
-INGEST_MAX_CHUNKS = int(os.environ.get("VIP9000_RAG_INGEST_MAX_CHUNKS", "24"))
+INGEST_MAX_CHUNKS = int(os.environ.get("VIP9000_RAG_INGEST_MAX_CHUNKS", "96"))
 PORT = int(os.environ.get("VIP9000_RAG_PORT", "8080"))
 INDEX_LOCK = threading.Lock()
 STATS_LOCK = threading.Lock()
@@ -426,6 +426,10 @@ def post_json(url: str, payload: dict, timeout_s: int = 240) -> tuple[dict, floa
     try:
         with urllib.request.urlopen(request, timeout=timeout_s) as response:
             result = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace").strip()
+        detail = body[:500] if body else exc.reason
+        raise RuntimeError(f"LLM request failed: HTTP {exc.code}: {detail}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"LLM request failed: {exc}") from exc
     return result, time.perf_counter() - t0

@@ -70,7 +70,7 @@ Limits are controlled by:
 
 ```bash
 VIP9000_RAG_INGEST_MAX_PAGES=8
-VIP9000_RAG_INGEST_MAX_CHUNKS=24
+VIP9000_RAG_INGEST_MAX_CHUNKS=96
 ```
 
 The Web checkbox enables a lightweight web-search tool for the prompt. When enabled, the backend searches the web for prompts that request current/search/latest information or when the local KB does not clear the relevance threshold. Web sources are passed to Qwen with `[W1]` style citation labels.
