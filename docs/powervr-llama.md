@@ -73,6 +73,22 @@ Retesting the WebUI server with higher offload counts showed coherent but slower
 
 So `-ngl 2` remains the default.
 
+The launcher also exposes opt-in tuning knobs:
+
+```bash
+CPUSET=6,7 THREADS=2 THREADS_BATCH=2 bash install/run_llama_cpp_powervr_server.sh
+GGML_VK_POWERVR_ALLOW_RMS_NORM=1 bash install/run_llama_cpp_powervr_server.sh
+GGML_VK_POWERVR_ALLOW_SWIGLU=1 bash install/run_llama_cpp_powervr_server.sh
+```
+
+Use these for experiments, not defaults. The documented trials showed no default-quality latency win.
+
+Benchmark the llama.cpp endpoint directly:
+
+```bash
+python3 scripts/benchmark_llama_server.py --runs 2
+```
+
 Observed WebUI request timing for a Radxa NVMe question with NPU embedding retrieval plus the llama.cpp provider:
 
 ```text

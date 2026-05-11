@@ -196,6 +196,53 @@ call 2: 18.193s
 
 The NPU execution is still the dominant cost, but repeated uncached queries in the same WebUI process avoid some Python/model-file overhead.
 
+## Embedding Persistent Cache And Batch Tool
+
+The embedding runner now also has an optional persistent cache controlled by:
+
+```bash
+EMBEDDINGGEMMA_EMBED_CACHE_DIR=/path/to/cache
+```
+
+The cache key includes the input text, model metadata, tokenizer, NBG, token embedding table, and dense-tail files. It is safe to reuse across processes and invalidates when model assets change.
+
+Validated with `scripts/embed_batch.py`:
+
+```text
+first pass:
+  text 1: 18.844s
+  text 2: 18.188s
+cached pass:
+  text 1: 0.002s
+  text 2: 0.001s
+max_abs_diff=0.0
+```
+
+`rag_demo/build_index.py` now defaults to an index-local embedding cache:
+
+```text
+rag_demo/index/embedding_cache/
+```
+
+That makes repeated index builds and source refreshes much less wasteful.
+
+## Embedding Timing Breakdown
+
+Set:
+
+```bash
+EMBEDDINGGEMMA_TIMING=1
+```
+
+Example timing:
+
+```text
+token_s=0.595266 inputs_s=0.008721 npu_s=18.175598 tail_s=0.058137 total_s=18.843525
+token_s=0.000308 inputs_s=0.005333 npu_s=18.171834 tail_s=0.006416 total_s=18.188001
+```
+
+The NPU runner call dominates. Python-side caching helps, but the main remaining embedding target is reducing or avoiding the `vpm_run` execution cost.
+
 ## GPU Layer Count Trial
 
 The stable service default is `-ngl 2`, which keeps one repeating layer's projection matvecs on PowerVR because the output layer is forced to CPU with `LLAMA_VK_NO_OUTPUT_OFFLOAD=1`.

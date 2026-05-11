@@ -71,6 +71,15 @@ The WebUI includes a persistent exact-query embedding cache and now defaults to 
 
 The embedding runner also caches tokenizer and dense-tail objects inside long-running processes to avoid repeated Python-side model-file loads.
 
+Additional utilities:
+
+```text
+scripts/embed_batch.py
+scripts/benchmark_llama_server.py
+```
+
+The batch embedding helper supports a persistent embedding cache with `EMBEDDINGGEMMA_EMBED_CACHE_DIR`.
+
 ## What Is Not Committed
 
 The following files are intentionally not included:

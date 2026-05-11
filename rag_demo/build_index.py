@@ -2,6 +2,7 @@
 import argparse
 import html
 import json
+import os
 import re
 from html.parser import HTMLParser
 from pathlib import Path
@@ -80,6 +81,7 @@ def main() -> int:
     parser.add_argument("--max-chunks", type=int, default=12)
     parser.add_argument("--chunk-words", type=int, default=90)
     parser.add_argument("--overlap-words", type=int, default=20)
+    parser.add_argument("--embedding-cache-dir", default=None)
     parser.add_argument("--verbose-npu", action="store_true")
     args = parser.parse_args()
 
@@ -87,6 +89,10 @@ def main() -> int:
     index_dir = here / args.index_dir
     work_dir = index_dir / "work"
     index_dir.mkdir(parents=True, exist_ok=True)
+    if args.embedding_cache_dir is None:
+        os.environ.setdefault("EMBEDDINGGEMMA_EMBED_CACHE_DIR", str(index_dir / "embedding_cache"))
+    elif args.embedding_cache_dir:
+        os.environ["EMBEDDINGGEMMA_EMBED_CACHE_DIR"] = args.embedding_cache_dir
 
     chunks = []
     for url in DEFAULT_URLS:

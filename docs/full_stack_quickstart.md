@@ -257,6 +257,22 @@ Benchmark two runs, showing the cache effect:
 python3 scripts/benchmark_webui.py --runs 2
 ```
 
+Batch embed text files while reusing the same Python process and optional persistent cache:
+
+```bash
+python3 scripts/embed_batch.py \
+  --model-dir ~/embeddinggemma_npu_seq128_bias_hidden_fp32 \
+  --input questions.txt \
+  --output question_embeddings.npy \
+  --cache-dir ~/embeddinggemma_npu_seq128_bias_hidden_fp32/embed_cache
+```
+
+Direct llama.cpp server benchmark:
+
+```bash
+python3 scripts/benchmark_llama_server.py --runs 2
+```
+
 Verified service-managed result on this board:
 
 ```text

@@ -1,5 +1,16 @@
 # Release Notes
 
+## v0.2.2
+
+- Added optional persistent embedding cache keyed by text and model asset fingerprints.
+- Added batch embedding utility, `scripts/embed_batch.py`.
+- Added embedding timing breakdown via `EMBEDDINGGEMMA_TIMING=1`.
+- Made `rag_demo/build_index.py` use an index-local embedding cache by default.
+- Added direct llama.cpp server benchmark utility, `scripts/benchmark_llama_server.py`.
+- Added `CPUSET`, `THREADS`, and `THREADS_BATCH` runtime knobs to the llama.cpp launcher.
+- Added safe passthrough for PowerVR op-family debug gates in the llama.cpp launcher.
+- Documented the eight embedding/Qwen refinement changes and validation results.
+
 ## v0.2.1
 
 - Added PowerVR patch `0005` with opt-in auxiliary op family gates.
