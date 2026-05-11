@@ -63,6 +63,16 @@ env GGML_VK_VISIBLE_DEVICES=0 LLAMA_VK_NO_OUTPUT_OFFLOAD=1 \
 
 `llama-completion` has produced coherent output with `-ngl 4`. The long-running WebUI server is currently kept at `-ngl 2` because that setting survived model load and OpenAI-compatible chat requests repeatedly with a 512-token context.
 
+Retesting the WebUI server with higher offload counts showed coherent but slower output:
+
+```text
+-ngl 2: graph splits 11, repeated run 9.17 s
+-ngl 3: graph splits 21, repeated run 16.84 s
+-ngl 4: graph splits 31, repeated run 20.81 s
+```
+
+So `-ngl 2` remains the default.
+
 Observed WebUI request timing for a Radxa NVMe question with NPU embedding retrieval plus the llama.cpp provider:
 
 ```text

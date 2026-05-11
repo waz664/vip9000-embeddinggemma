@@ -195,3 +195,17 @@ call 2: 18.193s
 ```
 
 The NPU execution is still the dominant cost, but repeated uncached queries in the same WebUI process avoid some Python/model-file overhead.
+
+## GPU Layer Count Trial
+
+The stable service default is `-ngl 2`, which keeps one repeating layer's projection matvecs on PowerVR because the output layer is forced to CPU with `LLAMA_VK_NO_OUTPUT_OFFLOAD=1`.
+
+Higher offload counts were retested with the current quality-first path:
+
+| GPU Layers | Vulkan Model Buffer | Graph Splits | First Run Total | Repeated Run Total | Result |
+| ---: | ---: | ---: | ---: | ---: | --- |
+| `-ngl 2` | 30 MiB | 11 | 33.18 s | 9.17 s | default |
+| `-ngl 3` | 60 MiB | 21 | 81.84 s | 16.84 s | slower |
+| `-ngl 4` | 90 MiB | 31 | 107.87 s | 20.81 s | slower |
+
+Generation quality stayed coherent, but the additional graph splits dominate. Keep `GPU_LAYERS=2` for the WebUI service until the Vulkan scheduler/synchronization overhead is reduced.
