@@ -67,7 +67,7 @@ Larger retrieval A/B eval, official CPU TFLite reference vs corrected NPU:
 
 The retrieval result meets the current quality target: query cosine mean >= `0.93`, query cosine min >= `0.90`, overlap@5 >= `0.85`, and reference-top MRR >= `0.70`.
 
-The WebUI includes a persistent exact-query embedding cache, exact-response cache, and a small hybrid retrieval boost for hardware spec terms. The fixed WebUI eval suite now passes `10/10` Radxa Cubie A7S questions. With both caches hot, the median eval response time was about `0.004 s`; new questions still pay the NPU embedding and Qwen generation costs.
+The WebUI includes a persistent exact-query embedding cache, exact-response cache, a small hybrid retrieval boost for hardware spec terms, sidebar knowledge ingestion, optional web search, and cumulative runtime stats. The fixed WebUI eval suite now passes `10/10` Radxa Cubie A7S questions. With both caches hot, the median eval response time was about `0.004 s`; new questions still pay the NPU embedding and Qwen generation costs.
 
 The embedding runner also caches tokenizer and dense-tail objects inside long-running processes to avoid repeated Python-side model-file loads.
 

@@ -1,5 +1,13 @@
 # Release Notes
 
+## v0.2.4
+
+- Made the WebUI viewport fixed with a sticky top status bar and chat auto-scroll after prompts/responses.
+- Added cumulative runtime stats to `/api/status` and the sidebar, including request count, web searches, added chunks, and LLM token totals.
+- Added sidebar knowledge ingestion for file uploads and URLs, with same-site one-level link following for URLs.
+- Added optional web-search context for Qwen, exposed by the Web checkbox in the chat form.
+- Web search results are passed to the model with `[W1]` citation labels and returned in the API response.
+
 ## v0.2.3
 
 - Added fixed WebUI RAG eval suite, `scripts/evaluate_webui_rag.py`, with 10 Radxa Cubie A7S hardware questions.

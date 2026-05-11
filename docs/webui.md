@@ -24,6 +24,9 @@ It uses:
 - a persistent exact-response cache, `VIP9000_RAG_RESPONSE_CACHE`, default enabled
 - a small hybrid retrieval boost for hardware spec terms such as SoC, LPDDR5, NVMe, PCIe, USB-C, and DisplayPort
 - top-1 retrieved context by default, configurable with `VIP9000_RAG_TOP_K`
+- cumulative runtime stats from `/api/status`, including request count and LLM token counts
+- URL/file knowledge ingestion from the sidebar
+- optional web search results for Qwen when the chat prompt enables web access
 
 Start it:
 
@@ -53,6 +56,29 @@ Yes, the Cubie A7S supports NVMe storage. [1]
 ```
 
 This is a complete local RAG path, but the Qwen3 generation latency is high. For a more usable interactive demo, try `gemma3:270m` or reduce retrieved context further. For a quality-oriented demo, keep `qwen3:0.6b` and accept the wait.
+
+## Sidebar Tools
+
+The sidebar can add knowledge without leaving the WebUI:
+
+- `Index URL` fetches the supplied URL, extracts text, follows same-site links one level down, chunks the pages, embeds the chunks, and appends them to `rag_demo/index`.
+- `Upload` accepts local text, Markdown, or HTML files and appends the extracted chunks to the same index.
+- Adding knowledge clears the exact-response cache so future answers use the updated index.
+
+Limits are controlled by:
+
+```bash
+VIP9000_RAG_INGEST_MAX_PAGES=8
+VIP9000_RAG_INGEST_MAX_CHUNKS=24
+```
+
+The Web checkbox enables a lightweight web-search tool for the prompt. When enabled, the backend searches the web for prompts that request current/search/latest information or when the local KB does not clear the relevance threshold. Web sources are passed to Qwen with `[W1]` style citation labels.
+
+Disable the web tool with:
+
+```bash
+VIP9000_RAG_WEB_SEARCH=0
+```
 
 ## WebUI Eval
 
