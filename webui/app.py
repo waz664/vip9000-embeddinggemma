@@ -30,7 +30,7 @@ LLAMA_CPP_URL = os.environ.get("VIP9000_RAG_LLAMA_CPP_URL", "http://127.0.0.1:80
 LLAMA_CPP_MODEL = os.environ.get("VIP9000_RAG_LLAMA_CPP_MODEL", "qwen3-0.6b-powervr")
 TOP_K = int(os.environ.get("VIP9000_RAG_TOP_K", "3"))
 CONTEXT_CHARS = int(os.environ.get("VIP9000_RAG_CONTEXT_CHARS", "1000"))
-MAX_TOKENS = int(os.environ.get("VIP9000_RAG_MAX_TOKENS", "140"))
+MAX_TOKENS = int(os.environ.get("VIP9000_RAG_MAX_TOKENS", "256"))
 KB_MIN_COSINE = float(os.environ.get("VIP9000_RAG_MIN_COSINE", "0.35"))
 QUERY_CACHE = os.environ.get("VIP9000_RAG_QUERY_CACHE", "1") != "0"
 RESPONSE_CACHE = os.environ.get("VIP9000_RAG_RESPONSE_CACHE", "1") != "0"

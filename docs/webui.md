@@ -24,7 +24,7 @@ It uses:
 - a persistent exact-response cache, `VIP9000_RAG_RESPONSE_CACHE`, default enabled
 - a small hybrid retrieval boost for hardware spec terms such as SoC, LPDDR5, NVMe, PCIe, USB-C, and DisplayPort
 - top-3 retrieved context by default, configurable with `VIP9000_RAG_TOP_K`
-- a `VIP9000_RAG_MAX_TOKENS` answer budget, default `140`, so multi-part spec answers do not truncate early
+- a `VIP9000_RAG_MAX_TOKENS` answer budget, default `256`, so multi-part spec answers do not truncate early
 - cumulative runtime stats from `/api/status`, including request count and LLM token counts
 - URL/file knowledge ingestion from the sidebar
 - optional web search results for Qwen when the chat prompt enables web access
