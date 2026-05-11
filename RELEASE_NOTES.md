@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.2.3
+
+- Added fixed WebUI RAG eval suite, `scripts/evaluate_webui_rag.py`, with 10 Radxa Cubie A7S hardware questions.
+- Added exact-response cache keyed by query, index fingerprint, model/provider, retrieval settings, and ranked chunk fingerprints.
+- Added hardware-term query expansion and lexical boosts for SoC, CPU, LPDDR5, NVMe, PCIe, USB-C, and DisplayPort.
+- Added persistent VIPLite runner prototype in `tools/` and optional `EMBEDDINGGEMMA_VIP_RUNNER` integration.
+- Validated persistent VIPLite output against `vpm_run` with `max_abs_diff=0.0`.
+- Documented Qwen Q4/Q8 trials; Q4 Vulkan is unsafe on the current PowerVR driver, Q8 CPU beat Q4 CPU in the short local test.
+- Latest WebUI eval results: `10/10` pass, cached median total `0.0038 s`.
+
 ## v0.2.2
 
 - Added optional persistent embedding cache keyed by text and model asset fingerprints.
