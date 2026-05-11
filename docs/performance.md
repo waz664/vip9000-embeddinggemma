@@ -6,6 +6,12 @@ These measurements are from the Radxa Cubie A7S using the WebUI `/api/chat` endp
 Does the Cubie A7S support NVMe?
 ```
 
+Run the local benchmark helper with:
+
+```bash
+python3 scripts/benchmark_webui.py --runs 2
+```
+
 The WebUI path includes:
 
 - NPU EmbeddingGemma query embedding

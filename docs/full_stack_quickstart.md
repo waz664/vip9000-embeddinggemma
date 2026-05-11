@@ -236,6 +236,12 @@ curl -s http://127.0.0.1:8080/api/chat \
   -d '{"query":"Does the Cubie A7S support NVMe?"}'
 ```
 
+Benchmark two runs, showing the cache effect:
+
+```bash
+python3 scripts/benchmark_webui.py --runs 2
+```
+
 Known local cold-server PowerVR result:
 
 ```text
