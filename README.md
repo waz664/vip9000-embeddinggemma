@@ -10,6 +10,14 @@ The working deployment uses:
 - CPU tokenization, embedding lookup, masked pooling, dense projection tail, and L2 normalization
 - a small directory-backed RAG demo for Radxa Cubie A7S product/docs pages
 
+## Start Here
+
+For a complete hobbyist-level walkthrough, including the prebuilt NPU runtime, patched llama.cpp PowerVR build, Qwen server, and RAG WebUI, follow:
+
+```text
+docs/full_stack_quickstart.md
+```
+
 ## Known Working Setup
 
 - Board: Radxa Cubie A7S
