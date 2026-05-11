@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.2.1
+
+- Added PowerVR patch `0005` with opt-in auxiliary op family gates.
+- Tested RMS_NORM, SWIGLU, ROPE, same-shape elementwise, and combined RMS_NORM+SWIGLU.
+- Confirmed the default projection-matvec-only PowerVR path remains fastest for the WebUI workload.
+- Added runtime update helper for refreshing installed WebUI/runner code after `git pull`.
+- Added optional OS tuning script and documented CPU governor/swappiness checks.
+- Cached tokenizer, token embedding memmap, and dense-tail weights inside the embedding runner.
+- Tested A76 pinning, higher GPU layer counts, and shorter RAG context; documented why they are not defaults.
+
 ## v0.2.0
 
 - Added full-stack hobbyist quickstart for:
