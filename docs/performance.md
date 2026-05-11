@@ -170,10 +170,10 @@ The WebUI now defaults to:
 
 ```text
 VIP9000_RAG_TOP_K=1
-VIP9000_RAG_CONTEXT_CHARS=450
+VIP9000_RAG_CONTEXT_CHARS=1000
 ```
 
-The vector search still computes ranked candidates, but only the best chunk is sent to Qwen by default. Users can raise `VIP9000_RAG_TOP_K` for harder questions that need more context.
+The vector search still computes ranked candidates, but only the best chunk is sent to Qwen by default. The current `1000` character cap normally preserves the full 90-word stored chunk while keeping prompts bounded. Users can raise `VIP9000_RAG_TOP_K` for harder questions that need more context.
 
 Validation on the NVMe query with the query embedding already cached:
 
@@ -184,7 +184,7 @@ Validation on the NVMe query with the query embedding already cached:
 | top-1, 450 chars | cold prompt cache | 0.0007 s | 34.86 s | 34.86 s | correct, cited |
 | top-1, 450 chars | warm prompt cache | 0.0007 s | 11.18 s | 11.19 s | correct, cited |
 
-For this small Qwen model, shorter retrieved context is a clear latency win. The default is therefore tuned for quick, source-backed answers rather than maximal recall.
+For this small Qwen model, shorter retrieved context is a clear latency win. Earlier tests used `450` characters, but the default was later raised to `1000` so a top-1 chunk is rarely cut mid-fact.
 
 ## Systemd-Managed Stack
 
@@ -351,4 +351,4 @@ It was faster, but it produced a wrong answer for the NVMe query:
 The Cubie A7S does not support NVMe. [1]
 ```
 
-So `VIP9000_RAG_CONTEXT_CHARS=450` remains the default quality floor for this demo index.
+This proved `300` characters is too aggressive. The current default is `1000`, which generally sends the full top-1 chunk while still avoiding multi-chunk prompt growth.
