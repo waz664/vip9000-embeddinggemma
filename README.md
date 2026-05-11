@@ -69,6 +69,8 @@ The retrieval result meets the current quality target: query cosine mean >= `0.9
 
 The WebUI includes a persistent exact-query embedding cache and now defaults to sending only the top retrieved chunk to Qwen. On this board, a repeated NVMe RAG query dropped from about `81 s` cold to about `11.2 s` with the query embedding cached and top-1 context.
 
+The embedding runner also caches tokenizer and dense-tail objects inside long-running processes to avoid repeated Python-side model-file loads.
+
 ## What Is Not Committed
 
 The following files are intentionally not included:

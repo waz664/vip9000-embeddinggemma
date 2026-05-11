@@ -23,18 +23,41 @@ BOS_ID = 2
 EOS_ID = 1
 PAD_ID = 0
 MASK_BIAS = -10000.0
+_SP = None
+_TOKEN_TABLE = None
+_DENSE_2 = None
+_DENSE_3 = None
 
 
 def token_ids(text: str) -> list[int]:
-    sp = spm.SentencePieceProcessor(model_file=str(TOKENIZER))
+    global _SP
+    if _SP is None:
+        _SP = spm.SentencePieceProcessor(model_file=str(TOKENIZER))
+    sp = _SP
     pieces = sp.encode(text, out_type=int)
     ids = [BOS_ID] + pieces[: SEQ_LEN - 2] + [EOS_ID]
     ids.extend([PAD_ID] * (SEQ_LEN - len(ids)))
     return ids
 
 
+def token_table() -> np.memmap:
+    global _TOKEN_TABLE
+    if _TOKEN_TABLE is None:
+        _TOKEN_TABLE = np.memmap(ROOT / "token_embedding_fp16.dat", dtype=np.float16, mode="r", shape=(VOCAB, HIDDEN))
+    return _TOKEN_TABLE
+
+
+def dense_tail_weights() -> tuple[np.ndarray, np.ndarray]:
+    global _DENSE_2, _DENSE_3
+    if _DENSE_2 is None:
+        _DENSE_2 = np.load(ROOT / "dense_2_weight_f32.npy")
+    if _DENSE_3 is None:
+        _DENSE_3 = np.load(ROOT / "dense_3_weight_f32.npy")
+    return _DENSE_2, _DENSE_3
+
+
 def write_inputs(ids: list[int], embeds_output: Path, bias_output: Path) -> None:
-    table = np.memmap(ROOT / "token_embedding_fp16.dat", dtype=np.float16, mode="r", shape=(VOCAB, HIDDEN))
+    table = token_table()
     embeds = np.asarray(table[np.asarray(ids, dtype=np.int64)], dtype=np.float32) * math.sqrt(HIDDEN)
     embeds.reshape(1, SEQ_LEN, HIDDEN).tofile(embeds_output)
 
@@ -46,8 +69,7 @@ def write_inputs(ids: list[int], embeds_output: Path, bias_output: Path) -> None
 def official_tail(hidden: np.ndarray, ids: list[int]) -> np.ndarray:
     mask = (np.asarray(ids, dtype=np.int32) != PAD_ID).astype(np.float32)
     pooled = (hidden.reshape(SEQ_LEN, HIDDEN) * mask[:, None]).sum(axis=0) / max(float(mask.sum()), 1.0)
-    w2 = np.load(ROOT / "dense_2_weight_f32.npy")
-    w3 = np.load(ROOT / "dense_3_weight_f32.npy")
+    w2, w3 = dense_tail_weights()
     out = pooled @ w2.T @ w3.T
     out = out.astype(np.float32)
     out /= max(float(np.linalg.norm(out)), 1e-12)

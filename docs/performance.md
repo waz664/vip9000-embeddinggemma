@@ -176,3 +176,22 @@ run=2 wall=8.19s  embedding=0.0007s  llm=8.18s  total=8.19s  embedding_cache_hit
 ```
 
 This is a tradeoff, not a default improvement. Cached repeated queries improved slightly, but first/cold queries regressed badly compared with the default service-managed result.
+
+## Embedding Runtime Object Cache
+
+The NPU embedding Python runner now caches process-local objects:
+
+- SentencePiece processor
+- token embedding memmap
+- dense projection tail weights
+
+This does not change model output. It avoids reloading those objects inside long-running processes such as the WebUI.
+
+Direct embedding benchmark after the change:
+
+```text
+call 1: 18.825s
+call 2: 18.193s
+```
+
+The NPU execution is still the dominant cost, but repeated uncached queries in the same WebUI process avoid some Python/model-file overhead.
