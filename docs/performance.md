@@ -312,7 +312,7 @@ The NPU runner call dominates. Python-side caching helps, but the main remaining
 
 ## Qwen Quantized Variant Trials
 
-Local Qwen3 0.6B GGUF variants were tested with `llama-completion`, `-c 512 -b 8 -ub 8`, CPU KV cache, flash attention off, and A76 affinity:
+Local Qwen3 0.6B GGUF variants were tested with `llama-completion`, `-c 512 -b 8 -ub 8`, CPU KV cache, flash attention off, and A76 affinity. The deployed chat service now uses a larger `-c 4096` context for top-3 RAG and optional Think mode:
 
 | Model | Mode | Result | Prompt tok/s | Generate tok/s | Total |
 | --- | --- | --- | ---: | ---: | ---: |

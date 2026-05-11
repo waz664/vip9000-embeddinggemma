@@ -202,18 +202,18 @@ The latest summary from this board is included at:
 artifacts/quality_eval_summary_v0.1.1.json
 ```
 
-## Ollama RAG WebUI
+## RAG WebUI
 
-An optional end-to-end demo is included in `webui/`. It uses the corrected NPU embedding path for retrieval and `qwen3:0.6b` through Ollama for answer generation.
+An optional end-to-end demo is included in `webui/`. It uses the corrected NPU embedding path for retrieval and can answer through either Ollama or the local llama.cpp PowerVR server. On the Cubie A7S, the recommended path is the systemd-managed llama.cpp stack:
 
 ```bash
-cd ~/rag_webui
-./app.py
+cd ~/vip9000-embeddinggemma
+SCOPE=user bash install/install_systemd_services.sh
 ```
 
 Open `http://<radxa-ip>:8080`.
 
-See `docs/webui.md` for notes and measured timing.
+The UI includes KB chat, optional web search, URL/file knowledge ingestion, runtime stats, and a Think checkbox for slower Qwen3 reasoning requests. See `docs/webui.md` for notes and measured timing.
 
 ## Experimental PowerVR llama.cpp Patch
 

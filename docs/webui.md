@@ -7,10 +7,10 @@ webui/app.py
 webui/static/index.html
 ```
 
-On the Radxa board, the live copy is:
+The recommended live copy is this repo checkout:
 
 ```text
-~/rag_webui
+~/vip9000-embeddinggemma
 ```
 
 It uses:
@@ -30,11 +30,11 @@ It uses:
 - URL/file knowledge ingestion from the sidebar
 - optional web search results for Qwen when the chat prompt enables web access
 
-Start it:
+Start the recommended service-managed stack:
 
 ```bash
-cd ~/rag_webui
-./app.py
+cd ~/vip9000-embeddinggemma
+SCOPE=user bash install/install_systemd_services.sh
 ```
 
 Open:
@@ -57,7 +57,7 @@ The answer produced:
 Yes, the Cubie A7S supports NVMe storage. [1]
 ```
 
-This is a complete local RAG path, but the Qwen3 generation latency is high. For a more usable interactive demo, try `gemma3:270m` or reduce retrieved context further. For a quality-oriented demo, keep `qwen3:0.6b` and accept the wait.
+This is a complete local RAG path, but Qwen3 generation latency is still high on this board. For the highest-quality DIY demo, keep `qwen3:0.6b`, use the llama.cpp PowerVR provider, and accept the wait.
 
 ## Sidebar Tools
 
@@ -165,7 +165,7 @@ llm_s=0.00
 total_s=0.0038 median over the 10-case eval
 ```
 
-After trimming the default retrieved context to top-1, a cached NVMe query through the llama.cpp PowerVR provider measured:
+An earlier top-1 latency trial through the llama.cpp PowerVR provider measured:
 
 ```text
 embedding_cache_hit=true

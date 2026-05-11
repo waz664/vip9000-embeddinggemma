@@ -22,7 +22,7 @@ env GGML_VK_VISIBLE_DEVICES=0 LLAMA_VK_NO_OUTPUT_OFFLOAD=1 \
   -p 'The capital of France is' \
   -n 12 -c 64 -b 8 -ub 8 -ngl 4 \
   --no-kv-offload -fa off \
-  --no-display-prompt --no-conversation --reasoning off \
+  --no-display-prompt --no-conversation --reasoning auto \
   --temp 0.2 --top-p 0.9 --no-perf
 ```
 
@@ -55,13 +55,14 @@ env GGML_VK_VISIBLE_DEVICES=0 LLAMA_VK_NO_OUTPUT_OFFLOAD=1 \
   ~/llama.cpp/build-vulkan/bin/llama-server \
   -m ~/llama.cpp/Qwen3-0.6B-F16-from-Q8.gguf \
   --host 0.0.0.0 --port 8081 \
-  -c 512 -b 8 -ub 8 -ngl 2 \
-  --no-kv-offload -fa off --reasoning off \
+  -c 4096 -b 8 -ub 8 -ngl 2 \
+  --no-kv-offload -fa off --reasoning auto \
+  --reasoning-budget-message "Now provide the final answer." \
   --alias qwen3-0.6b-powervr \
   -np 1 --no-cache-idle-slots --no-warmup
 ```
 
-`llama-completion` has produced coherent output with `-ngl 4`. The long-running WebUI server is currently kept at `-ngl 2` because that setting survived model load and OpenAI-compatible chat requests repeatedly with a 512-token context.
+`llama-completion` has produced coherent output with `-ngl 4`. The long-running WebUI server is currently kept at `-ngl 2` because that setting survived model load and OpenAI-compatible chat requests repeatedly. The server context is now `4096` so the WebUI can support top-3 RAG context plus the optional Think mode.
 
 Retesting the WebUI server with higher offload counts showed coherent but slower output:
 
